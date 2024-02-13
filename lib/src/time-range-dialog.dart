@@ -15,7 +15,7 @@ showTimeRangePicker({
   TimeOfDay? end,
 
   /// disabled time range (this time cannot be selected)
-  TimeRange? disabledTime,
+  List<TimeRange>? disabledTimes,
 
   /// the color for the disabled section
   Color? disabledColor,
@@ -130,7 +130,7 @@ showTimeRangePicker({
       child: TimeRangePicker(
         start: start,
         end: end,
-        disabledTime: disabledTime,
+        disabledTimes: disabledTimes,
         paintingStyle: paintingStyle,
         onStartChange: onStartChange,
         onEndChange: onEndChange,
@@ -182,7 +182,7 @@ class TimeRangePicker extends StatefulWidget {
   final TimeOfDay? start;
   final TimeOfDay? end;
 
-  final TimeRange? disabledTime;
+  final List<TimeRange>? disabledTimes;
 
   final void Function(TimeOfDay)? onStartChange;
   final void Function(TimeOfDay)? onEndChange;
@@ -234,7 +234,7 @@ class TimeRangePicker extends StatefulWidget {
     Key? key,
     this.start,
     this.end,
-    this.disabledTime,
+    this.disabledTimes,
     this.onStartChange,
     this.onEndChange,
     this.fromText = "From",
@@ -288,8 +288,8 @@ class TimeRangePickerState extends State<TimeRangePicker>
   double _startAngle = 0;
   double _endAngle = 0;
 
-  double? _disabledStartAngle;
-  double? _disabledEndAngle;
+  List<double>? _disabledStartAngle;
+  List<double>? _disabledEndAngle;
 
   final GlobalKey _circleKey = GlobalKey();
   final GlobalKey _wrapperKey = GlobalKey();
@@ -359,11 +359,12 @@ class TimeRangePickerState extends State<TimeRangePicker>
 
       _endAngle = timeToAngle(_endTime, _offsetRad);
 
-      if (widget.disabledTime != null) {
-        _disabledStartAngle =
-            timeToAngle(widget.disabledTime!.startTime, _offsetRad);
-        _disabledEndAngle =
-            timeToAngle(widget.disabledTime!.endTime, _offsetRad);
+      if (widget.disabledTimes != null && widget.disabledTimes!.isNotEmpty) {
+        for (var disabledTime in widget.disabledTimes!) {
+          _disabledStartAngle
+              ?.add(timeToAngle(disabledTime.startTime, _offsetRad));
+          _disabledEndAngle?.add(timeToAngle(disabledTime.endTime, _offsetRad));
+        }
       }
     });
   }
@@ -455,26 +456,29 @@ class TimeRangePickerState extends State<TimeRangePicker>
           angleToEndSigned < 0 ? 2 * pi + angleToEndSigned : angleToEndSigned;
 
       //check if hitting disabled
-      if (widget.disabledTime != null) {
-        var angleToDisabledStart = signedAngle(_disabledStartAngle!, dir);
-        var angleToDisabledEnd = signedAngle(_disabledEndAngle!, dir);
+      if (widget.disabledTimes != null && widget.disabledTimes!.isNotEmpty) {
+        for (var i = 0; i < _disabledStartAngle!.length; i++) {
+          var angleToDisabledStart = signedAngle(_disabledStartAngle![i], dir);
+          var angleToDisabledEnd = signedAngle(_disabledEndAngle![i], dir);
 
-        var disabledAngleSigned =
-            signedAngle(_disabledEndAngle!, _disabledStartAngle!);
-        var disabledDiff = disabledAngleSigned < 0
-            ? 2 * pi + disabledAngleSigned
-            : disabledAngleSigned;
+          var disabledAngleSigned =
+              signedAngle(_disabledEndAngle![i], _disabledStartAngle![i]);
 
-        //print("to disabled start " + (angleToDisabledStart * 180 / pi).toString());
-        // print("to disabled end " + (angleToDisabledEnd * 180 / pi).toString());
+          var disabledDiff = disabledAngleSigned < 0
+              ? 2 * pi + disabledAngleSigned
+              : disabledAngleSigned;
 
-        if (angleToDisabledStart - minDurationAngle < 0 &&
-            angleToDisabledStart > -disabledDiff / 2) {
-          dir = _disabledStartAngle! - minDurationAngle;
-          _updateTimeAndSnapAngle(ActiveTime.End, _disabledStartAngle!);
-        } else if (angleToDisabledEnd > 0 &&
-            angleToDisabledEnd < disabledDiff / 2) {
-          dir = _disabledEndAngle!;
+          //print("to disabled start " + (angleToDisabledStart * 180 / pi).toString());
+          // print("to disabled end " + (angleToDisabledEnd * 180 / pi).toString());
+
+          if (angleToDisabledStart - minDurationAngle < 0 &&
+              angleToDisabledStart > -disabledDiff / 2) {
+            dir = _disabledStartAngle![i] - minDurationAngle;
+            _updateTimeAndSnapAngle(ActiveTime.End, _disabledStartAngle![i]);
+          } else if (angleToDisabledEnd > 0 &&
+              angleToDisabledEnd < disabledDiff / 2) {
+            dir = _disabledEndAngle![i];
+          }
         }
       }
 
@@ -502,28 +506,29 @@ class TimeRangePickerState extends State<TimeRangePicker>
           : angleToStartSigned;
 
       //check if hitting disabled
-      if (widget.disabledTime != null) {
-        var angleToDisabledStart = signedAngle(_disabledStartAngle!, dir);
-        var angleToDisabledEnd = signedAngle(_disabledEndAngle!, dir);
+      if (widget.disabledTimes != null && widget.disabledTimes!.isNotEmpty) {
+        for (var i = 0; i < _disabledStartAngle!.length; i++) {
+          var angleToDisabledStart = signedAngle(_disabledStartAngle![i], dir);
+          var angleToDisabledEnd = signedAngle(_disabledEndAngle![i], dir);
 
-        var disabledAngleSigned =
-            signedAngle(_disabledEndAngle!, _disabledStartAngle!);
-        var disabledDiff = disabledAngleSigned < 0
-            ? 2 * pi + disabledAngleSigned
-            : disabledAngleSigned;
+          var disabledAngleSigned =
+              signedAngle(_disabledEndAngle![i], _disabledStartAngle![i]);
 
-        //print("to disabled start " + (angleToDisabledStart * 180 / pi).toString());
-        //print("to disabled end " + (angleToDisabledEnd * 180 / pi).toString());
+          var disabledDiff = disabledAngleSigned < 0
+              ? 2 * pi + disabledAngleSigned
+              : disabledAngleSigned;
 
-        //print("disabled diff " + (disabledDiff * 180 / pi).toString());
+          //print("to disabled start " + (angleToDisabledStart * 180 / pi).toString());
+          // print("to disabled end " + (angleToDisabledEnd * 180 / pi).toString());
 
-        if (angleToDisabledStart < 0 &&
-            angleToDisabledStart > -disabledDiff / 2) {
-          dir = _disabledStartAngle!;
-        } else if (angleToDisabledEnd + minDurationAngle > 0 &&
-            angleToDisabledEnd < disabledDiff / 2) {
-          dir = _disabledEndAngle! + minDurationAngle;
-          _updateTimeAndSnapAngle(ActiveTime.Start, _disabledEndAngle!);
+          if (angleToDisabledStart < 0 &&
+              angleToDisabledStart > -disabledDiff / 2) {
+            dir = _disabledStartAngle![i];
+          } else if (angleToDisabledEnd + minDurationAngle > 0 &&
+              angleToDisabledEnd < disabledDiff / 2) {
+            dir = _disabledEndAngle![i] + minDurationAngle;
+            _updateTimeAndSnapAngle(ActiveTime.Start, _disabledEndAngle![i]);
+          }
         }
       }
 
@@ -718,7 +723,7 @@ class TimeRangePickerState extends State<TimeRangePicker>
                     ticksOffset: widget.ticksOffset,
                     labels: widget.labels ?? new List.empty(),
                     labelStyle:
-                        widget.labelStyle ?? themeData.textTheme.bodyText1,
+                        widget.labelStyle ?? themeData.textTheme.bodyLarge,
                     labelOffset: widget.labelOffset,
                     rotateLabels: widget.rotateLabels,
                     autoAdjustLabels: widget.autoAdjustLabels,
@@ -739,7 +744,7 @@ class TimeRangePickerState extends State<TimeRangePicker>
         backgroundColor = themeData.primaryColor;
         break;
       case Brightness.dark:
-        backgroundColor = themeData.backgroundColor;
+        backgroundColor = themeData.colorScheme.background;
         break;
     }
 

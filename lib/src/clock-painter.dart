@@ -7,8 +7,8 @@ class ClockPainter extends CustomPainter {
   double? startAngle;
   double? endAngle;
 
-  double? disabledStartAngle;
-  double? disabledEndAngle;
+  List<double>? disabledStartAngle = const [];
+  List<double>? disabledEndAngle = const [];
   ActiveTime? activeTime;
 
   double radius;
@@ -87,14 +87,20 @@ class ClockPainter extends CustomPainter {
 
     canvas.drawCircle(rect.center, radius, paint);
 
-    if (disabledStartAngle != null && disabledEndAngle != null) {
+    if (disabledStartAngle != null &&
+        disabledEndAngle != null &&
+        disabledStartAngle!.isNotEmpty &&
+        disabledEndAngle!.isNotEmpty) {
       paint.color = disabledColor;
-      var start = normalizeAngle(disabledStartAngle!);
-      var end = normalizeAngle(disabledEndAngle!);
-      var sweep = calcSweepAngle(start, end);
 
-      canvas.drawArc(
-          rect, start, sweep, paintingStyle == PaintingStyle.fill, paint);
+      for (int i = 0; i < disabledStartAngle!.length; i++) {
+        var start = normalizeAngle(disabledStartAngle![i]);
+        var end = normalizeAngle(disabledEndAngle![i]);
+        var sweep = calcSweepAngle(start, end);
+
+        canvas.drawArc(
+            rect, start, sweep, paintingStyle == PaintingStyle.fill, paint);
+      }
     }
 
     drawTicks(
