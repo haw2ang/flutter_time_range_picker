@@ -288,8 +288,8 @@ class TimeRangePickerState extends State<TimeRangePicker>
   double _startAngle = 0;
   double _endAngle = 0;
 
-  List<double>? _disabledStartAngle;
-  List<double>? _disabledEndAngle;
+  List<double>? _disabledStartAngle = [];
+  List<double>? _disabledEndAngle = [];
 
   final GlobalKey _circleKey = GlobalKey();
   final GlobalKey _wrapperKey = GlobalKey();
