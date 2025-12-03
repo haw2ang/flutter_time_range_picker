@@ -722,29 +722,77 @@ class TimeRangePickerState extends State<TimeRangePicker>
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return Padding(
+    return Container(
+      margin: const EdgeInsets.all(16.0),
       padding: const EdgeInsets.all(24.0),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            colorScheme.primaryContainer.withOpacity(0.3),
+            colorScheme.secondaryContainer.withOpacity(0.2),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.primary.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
       child: Flex(
         direction: landscape ? Axis.vertical : Axis.horizontal,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _buildTimeDisplay(
-            label: widget.fromText,
-            time: _startTime,
-            isActive: _activeTime == ActiveTime.Start,
-            onTap: () => _openTimePicker(true),
-            theme: theme,
-            colorScheme: colorScheme,
+          Expanded(
+            child: _buildTimeDisplay(
+              label: widget.fromText,
+              time: _startTime,
+              isActive: _activeTime == ActiveTime.Start,
+              onTap: () => _openTimePicker(true),
+              theme: theme,
+              colorScheme: colorScheme,
+            ),
           ),
-          if (!landscape)
-            Icon(Icons.arrow_forward, color: colorScheme.onSurfaceVariant),
-          _buildTimeDisplay(
-            label: widget.toText,
-            time: _endTime,
-            isActive: _activeTime == ActiveTime.End,
-            onTap: () => _openTimePicker(false),
-            theme: theme,
-            colorScheme: colorScheme,
+          Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: landscape ? 0 : 16,
+              vertical: landscape ? 16 : 0,
+            ),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colorScheme.surface,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: colorScheme.primary.withOpacity(0.15),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Icon(
+                landscape
+                    ? Icons.arrow_downward_rounded
+                    : Icons.arrow_forward_rounded,
+                color: colorScheme.primary,
+                size: 24,
+              ),
+            ),
+          ),
+          Expanded(
+            child: _buildTimeDisplay(
+              label: widget.toText,
+              time: _endTime,
+              isActive: _activeTime == ActiveTime.End,
+              onTap: () => _openTimePicker(false),
+              theme: theme,
+              colorScheme: colorScheme,
+            ),
           ),
         ],
       ),
@@ -759,47 +807,108 @@ class TimeRangePickerState extends State<TimeRangePicker>
     required ThemeData theme,
     required ColorScheme colorScheme,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4.0, bottom: 4.0),
-          child: Text(
-            label.toUpperCase(),
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              letterSpacing: 1.0,
-            ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: isActive
+              ? LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    colorScheme.primary,
+                    colorScheme.primary.withOpacity(0.8),
+                  ],
+                )
+              : null,
+          color: isActive ? null : colorScheme.surface.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isActive
+                ? colorScheme.primary.withOpacity(0.3)
+                : colorScheme.outline.withOpacity(0.2),
+            width: isActive ? 2.5 : 1.5,
           ),
+          boxShadow: isActive
+              ? [
+                  BoxShadow(
+                    color: colorScheme.primary.withOpacity(0.3),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ]
+              : [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
         ),
-        InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: isActive
-                  ? colorScheme.primaryContainer
-                  : colorScheme.surfaceContainerHighest.withOpacity(0.3),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isActive ? colorScheme.primary : Colors.transparent,
-                width: 2,
-              ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? colorScheme.onPrimary.withOpacity(0.2)
+                        : colorScheme.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    label.toUpperCase(),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: isActive
+                          ? colorScheme.onPrimary
+                          : colorScheme.primary,
+                      letterSpacing: 1.2,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            child: Text(
-              MaterialLocalizations.of(context).formatTimeOfDay(time,
-                  alwaysUse24HourFormat: widget.use24HourFormat),
-              style: theme.textTheme.headlineMedium?.copyWith(
-                color: isActive
-                    ? colorScheme.onPrimaryContainer
-                    : colorScheme.onSurface,
-                fontWeight: FontWeight.bold,
-              ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.schedule_rounded,
+                  color: isActive
+                      ? colorScheme.onPrimary.withOpacity(0.9)
+                      : colorScheme.onSurface.withOpacity(0.6),
+                  size: 28,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  MaterialLocalizations.of(context).formatTimeOfDay(
+                    time,
+                    alwaysUse24HourFormat: widget.use24HourFormat,
+                  ),
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    color: isActive
+                        ? colorScheme.onPrimary
+                        : colorScheme.onSurface,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 32,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+              ],
             ),
-          ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
