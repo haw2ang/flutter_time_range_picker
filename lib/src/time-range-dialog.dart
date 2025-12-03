@@ -810,56 +810,95 @@ class TimeRangePickerState extends State<TimeRangePicker>
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: isActive
-                  ? colorScheme.onPrimary.withOpacity(0.2)
-                  : colorScheme.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              label.toUpperCase(),
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: isActive ? colorScheme.onPrimary : colorScheme.primary,
-                letterSpacing: 1.0,
-                fontWeight: FontWeight.w600,
-                fontSize: 10,
-              ),
-            ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: isActive
+              ? LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    colorScheme.primary,
+                    colorScheme.primary.withOpacity(0.8),
+                  ],
+                )
+              : null,
+          color: isActive ? null : colorScheme.surface.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isActive
+                ? colorScheme.primary.withOpacity(0.3)
+                : colorScheme.outline.withOpacity(0.2),
+            width: isActive ? 2 : 1.5,
           ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.schedule_rounded,
+          boxShadow: isActive
+              ? [
+                  BoxShadow(
+                    color: colorScheme.primary.withOpacity(0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
                 color: isActive
-                    ? colorScheme.onPrimary.withOpacity(0.9)
-                    : colorScheme.onSurface.withOpacity(0.6),
-                size: 20,
+                    ? colorScheme.onPrimary.withOpacity(0.2)
+                    : colorScheme.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(6),
               ),
-              const SizedBox(width: 8),
-              Text(
-                MaterialLocalizations.of(context).formatTimeOfDay(
-                  time,
-                  alwaysUse24HourFormat: widget.use24HourFormat,
-                ),
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  color:
-                      isActive ? colorScheme.onPrimary : colorScheme.onSurface,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 24,
-                  letterSpacing: -0.5,
+              child: Text(
+                label.toUpperCase(),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: isActive ? colorScheme.onPrimary : colorScheme.primary,
+                  letterSpacing: 1.0,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 10,
                 ),
               ),
-            ],
-          ),
-        ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.schedule_rounded,
+                  color: isActive
+                      ? colorScheme.onPrimary.withOpacity(0.9)
+                      : colorScheme.onSurface.withOpacity(0.6),
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  MaterialLocalizations.of(context).formatTimeOfDay(
+                    time,
+                    alwaysUse24HourFormat: widget.use24HourFormat,
+                  ),
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    color: isActive
+                        ? colorScheme.onPrimary
+                        : colorScheme.onSurface,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 24,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
