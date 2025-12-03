@@ -723,8 +723,8 @@ class TimeRangePickerState extends State<TimeRangePicker>
     final colorScheme = theme.colorScheme;
 
     return Container(
-      margin: const EdgeInsets.all(16.0),
-      padding: const EdgeInsets.all(24.0),
+      margin: const EdgeInsets.all(12.0),
+      padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -734,12 +734,12 @@ class TimeRangePickerState extends State<TimeRangePicker>
             colorScheme.secondaryContainer.withOpacity(0.2),
           ],
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
             color: colorScheme.primary.withOpacity(0.1),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -759,19 +759,19 @@ class TimeRangePickerState extends State<TimeRangePicker>
           ),
           Padding(
             padding: EdgeInsets.symmetric(
-              horizontal: landscape ? 0 : 16,
-              vertical: landscape ? 16 : 0,
+              horizontal: landscape ? 0 : 8,
+              vertical: landscape ? 8 : 0,
             ),
             child: Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: colorScheme.surface,
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
                     color: colorScheme.primary.withOpacity(0.15),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
                 ],
               ),
@@ -780,7 +780,7 @@ class TimeRangePickerState extends State<TimeRangePicker>
                     ? Icons.arrow_downward_rounded
                     : Icons.arrow_forward_rounded,
                 color: colorScheme.primary,
-                size: 24,
+                size: 20,
               ),
             ),
           ),
@@ -809,11 +809,11 @@ class TimeRangePickerState extends State<TimeRangePicker>
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(16),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
           gradient: isActive
               ? LinearGradient(
@@ -826,25 +826,25 @@ class TimeRangePickerState extends State<TimeRangePicker>
                 )
               : null,
           color: isActive ? null : colorScheme.surface.withOpacity(0.5),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isActive
                 ? colorScheme.primary.withOpacity(0.3)
                 : colorScheme.outline.withOpacity(0.2),
-            width: isActive ? 2.5 : 1.5,
+            width: isActive ? 2 : 1.5,
           ),
           boxShadow: isActive
               ? [
                   BoxShadow(
                     color: colorScheme.primary.withOpacity(0.3),
-                    blurRadius: 16,
-                    offset: const Offset(0, 6),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
                   ),
                 ]
               : [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.05),
-                    blurRadius: 8,
+                    blurRadius: 6,
                     offset: const Offset(0, 2),
                   ),
                 ],
@@ -853,32 +853,25 @@ class TimeRangePickerState extends State<TimeRangePicker>
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: isActive
-                        ? colorScheme.onPrimary.withOpacity(0.2)
-                        : colorScheme.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    label.toUpperCase(),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: isActive
-                          ? colorScheme.onPrimary
-                          : colorScheme.primary,
-                      letterSpacing: 1.2,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: isActive
+                    ? colorScheme.onPrimary.withOpacity(0.2)
+                    : colorScheme.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                label.toUpperCase(),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: isActive ? colorScheme.onPrimary : colorScheme.primary,
+                  letterSpacing: 1.0,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 10,
                 ),
-              ],
+              ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -887,20 +880,20 @@ class TimeRangePickerState extends State<TimeRangePicker>
                   color: isActive
                       ? colorScheme.onPrimary.withOpacity(0.9)
                       : colorScheme.onSurface.withOpacity(0.6),
-                  size: 28,
+                  size: 20,
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 Text(
                   MaterialLocalizations.of(context).formatTimeOfDay(
                     time,
                     alwaysUse24HourFormat: widget.use24HourFormat,
                   ),
-                  style: theme.textTheme.headlineMedium?.copyWith(
+                  style: theme.textTheme.headlineSmall?.copyWith(
                     color: isActive
                         ? colorScheme.onPrimary
                         : colorScheme.onSurface,
                     fontWeight: FontWeight.bold,
-                    fontSize: 32,
+                    fontSize: 24,
                     letterSpacing: -0.5,
                   ),
                 ),
