@@ -214,6 +214,28 @@ class TimeRangePickerState extends State<TimeRangePicker>
   double _radius = 50;
   double _offsetRad = 0;
 
+  void setEndTime(Duration fromStart) {
+    int startMinutes = _startTime.hour * 60 + _startTime.minute;
+    int newEndMinutes = startMinutes + fromStart.inMinutes;
+
+    _endTime = _minutesToTime(newEndMinutes);
+
+    if (widget.maxDuration != null) {
+      int maxMinutes = widget.maxDuration!.inMinutes;
+      if (newEndMinutes - startMinutes > maxMinutes) {
+        _endTime = _minutesToTime(startMinutes + maxMinutes);
+      }
+    }
+
+    setState(() {
+      _endAngle = timeToAngle(_endTime, _offsetRad);
+    });
+
+    if (widget.onEndChange != null) {
+      widget.onEndChange!(_endTime);
+    }
+  }
+
   @override
   void initState() {
     _offsetRad = (widget.clockRotation * pi / 180);
@@ -321,6 +343,7 @@ class TimeRangePickerState extends State<TimeRangePicker>
 
       if (isStartTime) {
         newStart = _roundMinutes(pickedMinutes.toDouble());
+
         int startMins = newStart.hour * 60 + newStart.minute;
         int endMins = newEnd.hour * 60 + newEnd.minute;
 
@@ -332,6 +355,7 @@ class TimeRangePickerState extends State<TimeRangePicker>
         }
       } else {
         newEnd = _roundMinutes(pickedMinutes.toDouble());
+
         int startMins = newStart.hour * 60 + newStart.minute;
         int endMins = newEnd.hour * 60 + newEnd.minute;
 
@@ -570,89 +594,42 @@ class TimeRangePickerState extends State<TimeRangePicker>
 
   @override
   Widget build(BuildContext context) {
-    final MediaQueryData mediaQuery = MediaQuery.of(context);
     final MaterialLocalizations localizations =
         MaterialLocalizations.of(context);
     final ThemeData themeData = Theme.of(context);
 
-    // Calculate available space
-    final screenHeight = mediaQuery.size.height;
-    final screenWidth = mediaQuery.size.width;
-    final isSmallScreen = screenHeight < 600 || screenWidth < 400;
-
     return OrientationBuilder(
-      builder: (_, orientation) {
-        // Force landscape layout for very small screens
-        final shouldUseLandscape = orientation == Orientation.landscape ||
-            (isSmallScreen && screenWidth > screenHeight);
-
-        return shouldUseLandscape
-            ? _buildLandscapeLayout(localizations, themeData, isSmallScreen)
-            : _buildPortraitLayout(localizations, themeData, isSmallScreen);
-      },
-    );
-  }
-
-  Widget _buildPortraitLayout(MaterialLocalizations localizations,
-      ThemeData themeData, bool isSmallScreen) {
-    return SingleChildScrollView(
-      child: Column(
-        key: _wrapperKey,
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: <Widget>[
-          if (!widget.hideTimes) buildHeader(false, isSmallScreen),
-          Padding(
-            padding: EdgeInsets.symmetric(
-              vertical: isSmallScreen ? 12.0 : 24.0,
-              horizontal: isSmallScreen ? 8.0 : 0,
-            ),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: isSmallScreen ? 250 : 400,
-                maxWidth: isSmallScreen ? 250 : 400,
-              ),
-              child: Stack(alignment: Alignment.center, children: [
-                if (widget.backgroundWidget != null) widget.backgroundWidget!,
-                buildTimeRange(
-                    localizations: localizations, themeData: themeData)
-              ]),
-            ),
-          ),
-          if (!widget.hideButtons)
-            buildButtonBar(
-                localizations: localizations, isSmallScreen: isSmallScreen)
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLandscapeLayout(MaterialLocalizations localizations,
-      ThemeData themeData, bool isSmallScreen) {
-    return SingleChildScrollView(
-      child: IntrinsicHeight(
-        child: Row(
-          children: [
-            if (!widget.hideTimes)
-              Flexible(
-                flex: 1,
-                child: buildHeader(true, isSmallScreen),
-              ),
-            Flexible(
-              flex: 2,
-              child: Column(
-                children: [
-                  Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.all(isSmallScreen ? 8.0 : 16.0),
-                      child: Container(
-                        key: _wrapperKey,
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxHeight: isSmallScreen ? 200 : 350,
-                            maxWidth: isSmallScreen ? 200 : 350,
-                          ),
+      builder: (_, orientation) => orientation == Orientation.portrait
+          ? Column(
+              key: _wrapperKey,
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: <Widget>[
+                if (!widget.hideTimes) buildHeader(false),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24.0),
+                  child: Stack(alignment: Alignment.center, children: [
+                    if (widget.backgroundWidget != null)
+                      widget.backgroundWidget!,
+                    buildTimeRange(
+                        localizations: localizations, themeData: themeData)
+                  ]),
+                ),
+                if (!widget.hideButtons)
+                  buildButtonBar(localizations: localizations)
+              ],
+            )
+          : Row(
+              children: [
+                if (!widget.hideTimes) buildHeader(true),
+                Expanded(
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          key: _wrapperKey,
+                          width: double.infinity,
                           child: Stack(alignment: Alignment.center, children: [
                             if (widget.backgroundWidget != null)
                               widget.backgroundWidget!,
@@ -662,68 +639,40 @@ class TimeRangePickerState extends State<TimeRangePicker>
                           ]),
                         ),
                       ),
-                    ),
+                      if (!widget.hideButtons)
+                        buildButtonBar(localizations: localizations)
+                    ],
                   ),
-                  if (!widget.hideButtons)
-                    buildButtonBar(
-                        localizations: localizations,
-                        isSmallScreen: isSmallScreen)
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
     );
   }
 
-  Widget buildButtonBar({
-    required MaterialLocalizations localizations,
-    required bool isSmallScreen,
-  }) =>
+  Widget buildButtonBar({required MaterialLocalizations localizations}) =>
       Padding(
-        padding: EdgeInsets.only(
-          bottom: isSmallScreen ? 4.0 : 8.0,
-          right: isSmallScreen ? 4.0 : 8.0,
-          left: isSmallScreen ? 4.0 : 0,
-        ),
+        padding: const EdgeInsets.only(bottom: 8.0, right: 8.0),
         child: OverflowBar(
-          spacing: isSmallScreen ? 4 : 8,
           children: <Widget>[
             TextButton(
               style: TextButton.styleFrom(
-                padding: EdgeInsets.symmetric(
-                  vertical: isSmallScreen ? 8 : 12,
-                  horizontal: isSmallScreen ? 12 : 16,
-                ),
-              ),
-              child: Text(
-                localizations.cancelButtonLabel,
-                style: TextStyle(fontSize: isSmallScreen ? 13 : 14),
-              ),
+                  padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16)),
+              child: Text(localizations.cancelButtonLabel),
               onPressed: _cancel,
             ),
             FilledButton(
               style: FilledButton.styleFrom(
-                padding: EdgeInsets.symmetric(
-                  vertical: isSmallScreen ? 8 : 12,
-                  horizontal: isSmallScreen ? 16 : 24,
-                ),
-              ),
-              child: Text(
-                localizations.okButtonLabel,
-                style: TextStyle(fontSize: isSmallScreen ? 13 : 14),
-              ),
+                  padding: EdgeInsets.symmetric(vertical: 12, horizontal: 24)),
+              child: Text(localizations.okButtonLabel),
               onPressed: _submit,
             ),
           ],
         ),
       );
 
-  Widget buildTimeRange({
-    required MaterialLocalizations localizations,
-    required ThemeData themeData,
-  }) =>
+  Widget buildTimeRange(
+          {required MaterialLocalizations localizations,
+          required ThemeData themeData}) =>
       RawGestureDetector(
         gestures: <Type, GestureRecognizerFactory>{
           ClockGestureRecognizer:
@@ -777,13 +726,13 @@ class TimeRangePickerState extends State<TimeRangePicker>
         ),
       );
 
-  Widget buildHeader(bool landscape, bool isSmallScreen) {
+  Widget buildHeader(bool landscape) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
     return Container(
-      margin: EdgeInsets.all(isSmallScreen ? 8.0 : 12.0),
-      padding: EdgeInsets.all(isSmallScreen ? 12.0 : 16.0),
+      margin: const EdgeInsets.all(12.0),
+      padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -793,11 +742,11 @@ class TimeRangePickerState extends State<TimeRangePicker>
             colorScheme.secondaryContainer.withOpacity(0.2),
           ],
         ),
-        borderRadius: BorderRadius.circular(isSmallScreen ? 16 : 20),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
             color: colorScheme.primary.withOpacity(0.1),
-            blurRadius: isSmallScreen ? 12 : 16,
+            blurRadius: 16,
             offset: const Offset(0, 4),
           ),
         ],
@@ -805,9 +754,8 @@ class TimeRangePickerState extends State<TimeRangePicker>
       child: Flex(
         direction: landscape ? Axis.vertical : Axis.horizontal,
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Flexible(
+          Expanded(
             child: _buildTimeDisplay(
               label: widget.fromText,
               time: _startTime,
@@ -815,23 +763,22 @@ class TimeRangePickerState extends State<TimeRangePicker>
               onTap: () => _openTimePicker(true),
               theme: theme,
               colorScheme: colorScheme,
-              isSmallScreen: isSmallScreen,
             ),
           ),
           Padding(
             padding: EdgeInsets.symmetric(
-              horizontal: landscape ? 0 : (isSmallScreen ? 4 : 8),
-              vertical: landscape ? (isSmallScreen ? 4 : 8) : 0,
+              horizontal: landscape ? 0 : 8,
+              vertical: landscape ? 8 : 0,
             ),
             child: Container(
-              padding: EdgeInsets.all(isSmallScreen ? 6 : 8),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: colorScheme.surface,
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
                     color: colorScheme.primary.withOpacity(0.15),
-                    blurRadius: isSmallScreen ? 6 : 8,
+                    blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
                 ],
@@ -841,11 +788,11 @@ class TimeRangePickerState extends State<TimeRangePicker>
                     ? Icons.arrow_downward_rounded
                     : Icons.arrow_forward_rounded,
                 color: colorScheme.primary,
-                size: isSmallScreen ? 16 : 20,
+                size: 20,
               ),
             ),
           ),
-          Flexible(
+          Expanded(
             child: _buildTimeDisplay(
               label: widget.toText,
               time: _endTime,
@@ -853,7 +800,6 @@ class TimeRangePickerState extends State<TimeRangePicker>
               onTap: () => _openTimePicker(false),
               theme: theme,
               colorScheme: colorScheme,
-              isSmallScreen: isSmallScreen,
             ),
           ),
         ],
@@ -868,16 +814,12 @@ class TimeRangePickerState extends State<TimeRangePicker>
     required VoidCallback onTap,
     required ThemeData theme,
     required ColorScheme colorScheme,
-    required bool isSmallScreen,
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(isSmallScreen ? 12 : 16),
+      borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: isSmallScreen ? 8 : 12,
-          vertical: isSmallScreen ? 8 : 12,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
           gradient: isActive
               ? LinearGradient(
@@ -890,7 +832,7 @@ class TimeRangePickerState extends State<TimeRangePicker>
                 )
               : null,
           color: isActive ? null : colorScheme.surface.withOpacity(0.5),
-          borderRadius: BorderRadius.circular(isSmallScreen ? 12 : 16),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isActive
                 ? colorScheme.primary.withOpacity(0.3)
@@ -901,14 +843,14 @@ class TimeRangePickerState extends State<TimeRangePicker>
               ? [
                   BoxShadow(
                     color: colorScheme.primary.withOpacity(0.3),
-                    blurRadius: isSmallScreen ? 8 : 12,
+                    blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
                 ]
               : [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.05),
-                    blurRadius: isSmallScreen ? 4 : 6,
+                    blurRadius: 6,
                     offset: const Offset(0, 2),
                   ),
                 ],
@@ -918,27 +860,24 @@ class TimeRangePickerState extends State<TimeRangePicker>
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: isSmallScreen ? 4 : 6,
-                vertical: isSmallScreen ? 1 : 2,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
                 color: isActive
                     ? colorScheme.onPrimary.withOpacity(0.2)
                     : colorScheme.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(isSmallScreen ? 4 : 6),
+                borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
                 label.toUpperCase(),
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: isActive ? colorScheme.onPrimary : colorScheme.primary,
-                  letterSpacing: isSmallScreen ? 0.8 : 1.0,
+                  letterSpacing: 1.0,
                   fontWeight: FontWeight.w600,
-                  fontSize: isSmallScreen ? 9 : 10,
+                  fontSize: 10,
                 ),
               ),
             ),
-            SizedBox(height: isSmallScreen ? 4 : 8),
+            const SizedBox(height: 8),
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -947,24 +886,21 @@ class TimeRangePickerState extends State<TimeRangePicker>
                   color: isActive
                       ? colorScheme.onPrimary.withOpacity(0.9)
                       : colorScheme.onSurface.withOpacity(0.6),
-                  size: isSmallScreen ? 16 : 20,
+                  size: 20,
                 ),
-                SizedBox(width: isSmallScreen ? 4 : 8),
-                Flexible(
-                  child: Text(
-                    MaterialLocalizations.of(context).formatTimeOfDay(
-                      time,
-                      alwaysUse24HourFormat: widget.use24HourFormat,
-                    ),
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      color: isActive
-                          ? colorScheme.onPrimary
-                          : colorScheme.onSurface,
-                      fontWeight: FontWeight.bold,
-                      fontSize: isSmallScreen ? 18 : 24,
-                      letterSpacing: -0.5,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+                const SizedBox(width: 8),
+                Text(
+                  MaterialLocalizations.of(context).formatTimeOfDay(
+                    time,
+                    alwaysUse24HourFormat: widget.use24HourFormat,
+                  ),
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    color: isActive
+                        ? colorScheme.onPrimary
+                        : colorScheme.onSurface,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 24,
+                    letterSpacing: -0.5,
                   ),
                 ),
               ],
