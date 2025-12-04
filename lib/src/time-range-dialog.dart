@@ -51,7 +51,6 @@ showTimeRangePicker({
 }) async {
   assert(debugCheckHasMaterialLocalizations(context));
 
-  // Modern Dialog Shape
   final Widget dialog = Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       elevation: 8,
@@ -261,7 +260,6 @@ class TimeRangePickerState extends State<TimeRangePicker>
       _endTime = _roundMinutes(endTime.hour * 60 + endTime.minute * 1.0);
 
       if (widget.maxDuration != null) {
-        // ... (existing maxDuration logic)
         var startDate =
             DateTime(2020, 1, 1, _startTime.hour, _startTime.minute);
         var endDate = DateTime(2020, 1, 1, _endTime.hour, _endTime.minute);
@@ -298,15 +296,13 @@ class TimeRangePickerState extends State<TimeRangePicker>
     return TimeOfDay(hour: hours, minute: minutes);
   }
 
-  // --- Logic for Manual Keyboard Input ---
   Future<void> _openTimePicker(bool isStartTime) async {
     final initialTime = isStartTime ? _startTime : _endTime;
 
-    // Use built-in flutter time picker with input mode
     final TimeOfDay? pickedTime = await showTimePicker(
       context: context,
       initialTime: initialTime,
-      initialEntryMode: TimePickerEntryMode.input, // Keyboard input
+      initialEntryMode: TimePickerEntryMode.input,
       builder: (context, child) {
         return MediaQuery(
           data: MediaQuery.of(context)
@@ -317,8 +313,6 @@ class TimeRangePickerState extends State<TimeRangePicker>
     );
 
     if (pickedTime != null) {
-      // Logic to enforce minDuration and prevent overlap
-      // This mimics the logic inside _panUpdate but for direct values
       int pickedMinutes = pickedTime.hour * 60 + pickedTime.minute;
       int minDurationMinutes = widget.minDuration.inMinutes;
 
@@ -327,27 +321,25 @@ class TimeRangePickerState extends State<TimeRangePicker>
 
       if (isStartTime) {
         newStart = _roundMinutes(pickedMinutes.toDouble());
-        // Check if new start pushes end
+
         int startMins = newStart.hour * 60 + newStart.minute;
         int endMins = newEnd.hour * 60 + newEnd.minute;
 
-        if (endMins < startMins) endMins += 24 * 60; // handle overnight
+        if (endMins < startMins) endMins += 24 * 60;
 
         if (endMins - startMins < minDurationMinutes) {
-          // Push end time forward
           int newEndTotal = startMins + minDurationMinutes;
           newEnd = _minutesToTime(newEndTotal);
         }
       } else {
         newEnd = _roundMinutes(pickedMinutes.toDouble());
-        // Check if new end pushes start backward
+
         int startMins = newStart.hour * 60 + newStart.minute;
         int endMins = newEnd.hour * 60 + newEnd.minute;
 
-        if (endMins < startMins) endMins += 24 * 60; // handle overnight
+        if (endMins < startMins) endMins += 24 * 60;
 
         if (endMins - startMins < minDurationMinutes) {
-          // Push start time backward
           int newStartTotal = endMins - minDurationMinutes;
           newStart = _minutesToTime(newStartTotal);
         }
@@ -369,17 +361,14 @@ class TimeRangePickerState extends State<TimeRangePicker>
   }
 
   TimeOfDay _minutesToTime(int totalMinutes) {
-    // Normalize to 24h
     while (totalMinutes >= 24 * 60) totalMinutes -= 24 * 60;
     while (totalMinutes < 0) totalMinutes += 24 * 60;
 
     return TimeOfDay(
         hour: (totalMinutes / 60).floor(), minute: totalMinutes % 60);
   }
-  // ----------------------------------------
 
   bool _panStart(PointerDownEvent ev) {
-    // ... (No changes to _panStart logic needed, kept for brevity)
     bool isHandler = false;
     var globalPoint = ev.position;
     var snap = widget.handlerRadius * 2.5;
@@ -432,8 +421,8 @@ class TimeRangePickerState extends State<TimeRangePicker>
   }
 
   void _panUpdate(PointerMoveEvent ev) {
-    // Existing pan logic ...
     if (_activeTime == null) return;
+
     RenderBox circle =
         _circleKey.currentContext!.findRenderObject() as RenderBox;
     final center = circle.size.center(Offset.zero);
@@ -445,45 +434,29 @@ class TimeRangePickerState extends State<TimeRangePicker>
     var minDurationAngle =
         minDurationSigned < 0 ? 2 * pi + minDurationSigned : minDurationSigned;
 
+    if (widget.disabledTimes != null && widget.disabledTimes!.isNotEmpty) {
+      dir = adjustAngleToAvoidDisabled(
+        dir,
+        _activeTime == ActiveTime.Start,
+        _disabledStartAngle,
+        _disabledEndAngle,
+      );
+    }
+
     if (_activeTime == ActiveTime.Start) {
       var angleToEndSigned = signedAngle(_endAngle, dir);
       var angleToEnd =
           angleToEndSigned < 0 ? 2 * pi + angleToEndSigned : angleToEndSigned;
 
-      if (widget.disabledTimes != null && widget.disabledTimes!.isNotEmpty) {
-        for (var i = 0; i < _disabledStartAngle!.length; i++) {
-          var angleToDisabledStart = signedAngle(_disabledStartAngle![i], dir);
-          var angleToDisabledEnd = signedAngle(_disabledEndAngle![i], dir);
-          var disabledAngleSigned =
-              signedAngle(_disabledEndAngle![i], _disabledStartAngle![i]);
-          var disabledDiff = disabledAngleSigned < 0
-              ? 2 * pi + disabledAngleSigned
-              : disabledAngleSigned;
-
-          if (angleToDisabledStart - minDurationAngle < 0 &&
-              angleToDisabledStart > -disabledDiff / 2) {
-            dir = _disabledStartAngle![i] - minDurationAngle;
-            _updateTimeAndSnapAngle(ActiveTime.End, _disabledStartAngle![i]);
-          } else if (angleToDisabledEnd > 0 &&
-              angleToDisabledEnd < disabledDiff / 2) {
-            dir = _disabledEndAngle![i];
-          }
-        }
-      }
-
       if (angleToEnd > 0 && angleToEnd < minDurationAngle) {
-        var angle = dir + minDurationAngle;
-        _updateTimeAndSnapAngle(ActiveTime.End, angle);
+        _updateTimeAndSnapAngle(ActiveTime.End, dir + minDurationAngle);
       }
 
       if (widget.maxDuration != null) {
-        var startSigned = signedAngle(_endAngle, dir);
-        var startDiff = startSigned < 0 ? 2 * pi + startSigned : startSigned;
-        var maxSigned = durationToAngle(widget.maxDuration!);
-        var maxDiff = maxSigned < 0 ? 2 * pi + maxSigned : maxSigned;
+        var startDiff = angleToEnd;
+        var maxDiff = durationToAngle(widget.maxDuration!);
         if (startDiff > maxDiff) {
-          var angle = dir + maxSigned;
-          _updateTimeAndSnapAngle(ActiveTime.End, angle);
+          _updateTimeAndSnapAngle(ActiveTime.End, dir + maxDiff);
         }
       }
     } else {
@@ -492,43 +465,19 @@ class TimeRangePickerState extends State<TimeRangePicker>
           ? 2 * pi + angleToStartSigned
           : angleToStartSigned;
 
-      if (widget.disabledTimes != null && widget.disabledTimes!.isNotEmpty) {
-        for (var i = 0; i < _disabledStartAngle!.length; i++) {
-          var angleToDisabledStart = signedAngle(_disabledStartAngle![i], dir);
-          var angleToDisabledEnd = signedAngle(_disabledEndAngle![i], dir);
-          var disabledAngleSigned =
-              signedAngle(_disabledEndAngle![i], _disabledStartAngle![i]);
-          var disabledDiff = disabledAngleSigned < 0
-              ? 2 * pi + disabledAngleSigned
-              : disabledAngleSigned;
-
-          if (angleToDisabledStart < 0 &&
-              angleToDisabledStart > -disabledDiff / 2) {
-            dir = _disabledStartAngle![i];
-          } else if (angleToDisabledEnd + minDurationAngle > 0 &&
-              angleToDisabledEnd < disabledDiff / 2) {
-            dir = _disabledEndAngle![i] + minDurationAngle;
-            _updateTimeAndSnapAngle(ActiveTime.Start, _disabledEndAngle![i]);
-          }
-        }
-      }
-
       if (angleToStart > 0 && angleToStart < minDurationAngle) {
-        var angle = dir - minDurationAngle;
-        _updateTimeAndSnapAngle(ActiveTime.Start, angle);
+        _updateTimeAndSnapAngle(ActiveTime.Start, dir - minDurationAngle);
       }
 
       if (widget.maxDuration != null) {
-        var endSigned = signedAngle(dir, _startAngle);
-        var endDiff = endSigned < 0 ? 2 * pi + endSigned : endSigned;
-        var maxSigned = durationToAngle(widget.maxDuration!);
-        var maxDiff = maxSigned < 0 ? 2 * pi + maxSigned : maxSigned;
+        var endDiff = angleToStart;
+        var maxDiff = durationToAngle(widget.maxDuration!);
         if (endDiff > maxDiff) {
-          var angle = dir - maxSigned;
-          _updateTimeAndSnapAngle(ActiveTime.Start, angle);
+          _updateTimeAndSnapAngle(ActiveTime.Start, dir - maxDiff);
         }
       }
     }
+
     _updateTimeAndSnapAngle(_activeTime!, dir);
   }
 
@@ -643,7 +592,6 @@ class TimeRangePickerState extends State<TimeRangePicker>
       Padding(
         padding: const EdgeInsets.only(bottom: 8.0, right: 8.0),
         child: OverflowBar(
-          // buttonPadding: EdgeInsets.symmetric(horizontal: 20),
           children: <Widget>[
             TextButton(
               style: TextButton.styleFrom(
@@ -717,7 +665,6 @@ class TimeRangePickerState extends State<TimeRangePicker>
         ),
       );
 
-  // MODERN HEADER WITH KEYBOARD INPUT
   Widget buildHeader(bool landscape) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;

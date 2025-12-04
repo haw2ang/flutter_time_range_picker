@@ -66,3 +66,51 @@ class ClockLabel {
     return ClockLabel(angle: angle, text: text);
   }
 }
+
+// Check if an angle is inside any disabled range
+bool isAngleDisabled(
+    double angle, List<double>? disabledStart, List<double>? disabledEnd) {
+  if (disabledStart == null || disabledStart.isEmpty) return false;
+
+  angle = normalizeAngle(angle);
+
+  for (int i = 0; i < disabledStart.length; i++) {
+    double start = normalizeAngle(disabledStart[i]);
+    double end = normalizeAngle(disabledEnd![i]);
+
+    if (start <= end) {
+      // Normal interval (does not cross midnight)
+      if (angle >= start && angle <= end) return true;
+    } else {
+      // Interval crosses midnight (e.g., 8 PM → 8 AM)
+      if (angle >= start || angle <= end) return true;
+    }
+  }
+
+  return false;
+}
+
+// Snap angle outside disabled ranges
+double adjustAngleToAvoidDisabled(double angle, bool isStart,
+    List<double>? disabledStart, List<double>? disabledEnd) {
+  angle = normalizeAngle(angle);
+
+  for (int i = 0; i < disabledStart!.length; i++) {
+    double start = normalizeAngle(disabledStart[i]);
+    double end = normalizeAngle(disabledEnd![i]);
+
+    bool inside = false;
+    if (start <= end) {
+      inside = angle >= start && angle <= end;
+    } else {
+      inside = angle >= start || angle <= end;
+    }
+
+    if (inside) {
+      // Snap outside the interval
+      return isStart ? start - 0.001 : end + 0.001;
+    }
+  }
+
+  return angle;
+}
