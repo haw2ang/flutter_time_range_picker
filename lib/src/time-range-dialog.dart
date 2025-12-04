@@ -51,62 +51,48 @@ showTimeRangePicker({
 }) async {
   assert(debugCheckHasMaterialLocalizations(context));
 
-  // RESPONSIVE DIALOG WRAPPER
-  final size = MediaQuery.of(context).size;
-  final isSmallScreen = size.width < 400 || size.height < 500;
-
   final Widget dialog = Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       elevation: 8,
       backgroundColor: Theme.of(context).colorScheme.surface,
-      // Adaptive padding based on screen size
-      insetPadding: isSmallScreen
-          ? const EdgeInsets.all(8)
-          : const EdgeInsets.symmetric(horizontal: 40.0, vertical: 24.0),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: 600, // Prevent it from becoming too wide on desktop
-          maxHeight: size.height * 0.9, // Ensure it fits vertically
-        ),
-        child: TimeRangePicker(
-          start: start,
-          end: end,
-          disabledTimes: disabledTimes,
-          paintingStyle: paintingStyle,
-          onStartChange: onStartChange,
-          onEndChange: onEndChange,
-          fromText: fromText,
-          toText: toText,
-          interval: interval,
-          padding: padding,
-          strokeWidth: strokeWidth,
-          handlerRadius: handlerRadius,
-          strokeColor: strokeColor,
-          handlerColor: handlerColor,
-          selectedColor: selectedColor,
-          backgroundColor: backgroundColor,
-          disabledColor: disabledColor,
-          backgroundWidget: backgroundWidget,
-          ticks: ticks,
-          ticksLength: ticksLength,
-          ticksWidth: ticksWidth,
-          ticksOffset: ticksOffset,
-          ticksColor: ticksColor,
-          snap: snap,
-          labels: labels,
-          labelOffset: labelOffset,
-          rotateLabels: rotateLabels,
-          autoAdjustLabels: autoAdjustLabels,
-          labelStyle: labelStyle,
-          timeTextStyle: timeTextStyle,
-          activeTimeTextStyle: activeTimeTextStyle,
-          hideTimes: hideTimes,
-          use24HourFormat: use24HourFormat,
-          clockRotation: clockRotation,
-          maxDuration: maxDuration,
-          minDuration: minDuration,
-          hideButtons: hideButtons,
-        ),
+      insetPadding: EdgeInsets.all(16),
+      child: TimeRangePicker(
+        start: start,
+        end: end,
+        disabledTimes: disabledTimes,
+        paintingStyle: paintingStyle,
+        onStartChange: onStartChange,
+        onEndChange: onEndChange,
+        fromText: fromText,
+        toText: toText,
+        interval: interval,
+        padding: padding,
+        strokeWidth: strokeWidth,
+        handlerRadius: handlerRadius,
+        strokeColor: strokeColor,
+        handlerColor: handlerColor,
+        selectedColor: selectedColor,
+        backgroundColor: backgroundColor,
+        disabledColor: disabledColor,
+        backgroundWidget: backgroundWidget,
+        ticks: ticks,
+        ticksLength: ticksLength,
+        ticksWidth: ticksWidth,
+        ticksOffset: ticksOffset,
+        ticksColor: ticksColor,
+        snap: snap,
+        labels: labels,
+        labelOffset: labelOffset,
+        rotateLabels: rotateLabels,
+        autoAdjustLabels: autoAdjustLabels,
+        labelStyle: labelStyle,
+        timeTextStyle: timeTextStyle,
+        activeTimeTextStyle: activeTimeTextStyle,
+        hideTimes: hideTimes,
+        use24HourFormat: use24HourFormat,
+        clockRotation: clockRotation,
+        maxDuration: maxDuration,
+        minDuration: minDuration,
       ));
 
   return await showDialog<TimeRange>(
@@ -212,7 +198,7 @@ class TimeRangePicker extends StatefulWidget {
 }
 
 class TimeRangePickerState extends State<TimeRangePicker>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   ActiveTime? _activeTime;
   double _startAngle = 0;
   double _endAngle = 0;
@@ -221,6 +207,7 @@ class TimeRangePickerState extends State<TimeRangePicker>
   List<double>? _disabledEndAngle = [];
 
   final GlobalKey _circleKey = GlobalKey();
+  final GlobalKey _wrapperKey = GlobalKey();
 
   late TimeOfDay _startTime;
   late TimeOfDay _endTime;
@@ -230,8 +217,33 @@ class TimeRangePickerState extends State<TimeRangePicker>
   @override
   void initState() {
     _offsetRad = (widget.clockRotation * pi / 180);
+    WidgetsBinding.instance.addObserver(this);
     setAngles();
+    WidgetsBinding.instance.addPostFrameCallback((_) => setRadius());
     super.initState();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeMetrics() {
+    super.didChangeMetrics();
+    WidgetsBinding.instance.addPostFrameCallback((_) => setRadius());
+  }
+
+  setRadius() {
+    RenderBox? wrapper =
+        _wrapperKey.currentContext?.findRenderObject() as RenderBox?;
+    if (wrapper != null) {
+      setState(() {
+        _radius =
+            min(wrapper.size.width, wrapper.size.height) / 2 - (widget.padding);
+      });
+    }
   }
 
   void setAngles() {
@@ -261,8 +273,6 @@ class TimeRangePickerState extends State<TimeRangePicker>
       _endAngle = timeToAngle(_endTime, _offsetRad);
 
       if (widget.disabledTimes != null && widget.disabledTimes!.isNotEmpty) {
-        _disabledStartAngle = [];
-        _disabledEndAngle = [];
         for (var disabledTime in widget.disabledTimes!) {
           _disabledStartAngle
               ?.add(timeToAngle(disabledTime.startTime, _offsetRad));
@@ -429,6 +439,7 @@ class TimeRangePickerState extends State<TimeRangePicker>
       if (widget.disabledTimes != null && widget.disabledTimes!.isNotEmpty) {
         for (var i = 0; i < _disabledStartAngle!.length; i++) {
           var angleToDisabledStart = signedAngle(_disabledStartAngle![i], dir);
+          var angleToDisabledEnd = signedAngle(_disabledEndAngle![i], dir);
           var disabledAngleSigned =
               signedAngle(_disabledEndAngle![i], _disabledStartAngle![i]);
           var disabledDiff = disabledAngleSigned < 0
@@ -439,6 +450,9 @@ class TimeRangePickerState extends State<TimeRangePicker>
               angleToDisabledStart > -disabledDiff / 2) {
             dir = _disabledStartAngle![i] - minDurationAngle;
             _updateTimeAndSnapAngle(ActiveTime.End, _disabledStartAngle![i]);
+          } else if (angleToDisabledEnd > 0 &&
+              angleToDisabledEnd < disabledDiff / 2) {
+            dir = _disabledEndAngle![i];
           }
         }
       }
@@ -529,6 +543,16 @@ class TimeRangePickerState extends State<TimeRangePicker>
     }
   }
 
+  bool isBetweenAngle(double min, double max, double targetAngle) {
+    var normalisedMin = min >= 0 ? min : 2 * pi + min;
+    var normalisedMax = max >= 0 ? max : 2 * pi + max;
+    var normalisedTarget =
+        targetAngle >= 0 ? targetAngle : 2 * pi + targetAngle;
+
+    return normalisedMin <= normalisedTarget &&
+        normalisedTarget <= normalisedMax;
+  }
+
   void _panEnd(PointerUpEvent ev) {
     setState(() {
       _activeTime = null;
@@ -546,105 +570,150 @@ class TimeRangePickerState extends State<TimeRangePicker>
 
   @override
   Widget build(BuildContext context) {
+    final MediaQueryData mediaQuery = MediaQuery.of(context);
     final MaterialLocalizations localizations =
         MaterialLocalizations.of(context);
     final ThemeData themeData = Theme.of(context);
 
-    // Dynamic layout determination
-    return LayoutBuilder(builder: (context, constraints) {
-      final isLandscape = constraints.maxWidth > constraints.maxHeight;
+    // Calculate available space
+    final screenHeight = mediaQuery.size.height;
+    final screenWidth = mediaQuery.size.width;
+    final isSmallScreen = screenHeight < 600 || screenWidth < 400;
 
-      if (!isLandscape) {
-        // PORTRAIT LAYOUT
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: <Widget>[
-            if (!widget.hideTimes) buildHeader(false),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12.0),
-                child: _buildResponsiveClock(localizations, themeData),
-              ),
+    return OrientationBuilder(
+      builder: (_, orientation) {
+        // Force landscape layout for very small screens
+        final shouldUseLandscape = orientation == Orientation.landscape ||
+            (isSmallScreen && screenWidth > screenHeight);
+
+        return shouldUseLandscape
+            ? _buildLandscapeLayout(localizations, themeData, isSmallScreen)
+            : _buildPortraitLayout(localizations, themeData, isSmallScreen);
+      },
+    );
+  }
+
+  Widget _buildPortraitLayout(MaterialLocalizations localizations,
+      ThemeData themeData, bool isSmallScreen) {
+    return SingleChildScrollView(
+      child: Column(
+        key: _wrapperKey,
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: <Widget>[
+          if (!widget.hideTimes) buildHeader(false, isSmallScreen),
+          Padding(
+            padding: EdgeInsets.symmetric(
+              vertical: isSmallScreen ? 12.0 : 24.0,
+              horizontal: isSmallScreen ? 8.0 : 0,
             ),
-            if (!widget.hideButtons)
-              buildButtonBar(localizations: localizations)
-          ],
-        );
-      } else {
-        // LANDSCAPE LAYOUT
-        return Row(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: isSmallScreen ? 250 : 400,
+                maxWidth: isSmallScreen ? 250 : 400,
+              ),
+              child: Stack(alignment: Alignment.center, children: [
+                if (widget.backgroundWidget != null) widget.backgroundWidget!,
+                buildTimeRange(
+                    localizations: localizations, themeData: themeData)
+              ]),
+            ),
+          ),
+          if (!widget.hideButtons)
+            buildButtonBar(
+                localizations: localizations, isSmallScreen: isSmallScreen)
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLandscapeLayout(MaterialLocalizations localizations,
+      ThemeData themeData, bool isSmallScreen) {
+    return SingleChildScrollView(
+      child: IntrinsicHeight(
+        child: Row(
           children: [
-            Expanded(
-              flex: 4,
+            if (!widget.hideTimes)
+              Flexible(
+                flex: 1,
+                child: buildHeader(true, isSmallScreen),
+              ),
+            Flexible(
+              flex: 2,
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  if (!widget.hideTimes) buildHeader(true),
-                  const Spacer(),
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.all(isSmallScreen ? 8.0 : 16.0),
+                      child: Container(
+                        key: _wrapperKey,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxHeight: isSmallScreen ? 200 : 350,
+                            maxWidth: isSmallScreen ? 200 : 350,
+                          ),
+                          child: Stack(alignment: Alignment.center, children: [
+                            if (widget.backgroundWidget != null)
+                              widget.backgroundWidget!,
+                            buildTimeRange(
+                                localizations: localizations,
+                                themeData: themeData)
+                          ]),
+                        ),
+                      ),
+                    ),
+                  ),
                   if (!widget.hideButtons)
-                    buildButtonBar(localizations: localizations),
+                    buildButtonBar(
+                        localizations: localizations,
+                        isSmallScreen: isSmallScreen)
                 ],
               ),
             ),
-            Expanded(
-              flex: 6,
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                child: _buildResponsiveClock(localizations, themeData),
-              ),
-            ),
           ],
-        );
-      }
-    });
+        ),
+      ),
+    );
   }
 
-  /// Calculates radius dynamically based on available space
-  Widget _buildResponsiveClock(
-      MaterialLocalizations localizations, ThemeData themeData) {
-    return LayoutBuilder(builder: (context, constraints) {
-      // Calculate radius instantly based on smallest dimension
-      double dimension = min(constraints.maxWidth, constraints.maxHeight);
-      _radius = (dimension / 2) - widget.padding;
-
-      // Safe guard against negative radius
-      if (_radius <= 0) _radius = 10;
-
-      return Stack(
-        alignment: Alignment.center,
-        children: [
-          if (widget.backgroundWidget != null) widget.backgroundWidget!,
-          buildTimeRange(
-            localizations: localizations,
-            themeData: themeData,
-            radius: _radius, // Pass calculated radius
-          ),
-        ],
-      );
-    });
-  }
-
-  Widget buildButtonBar({required MaterialLocalizations localizations}) =>
+  Widget buildButtonBar({
+    required MaterialLocalizations localizations,
+    required bool isSmallScreen,
+  }) =>
       Padding(
-        padding: const EdgeInsets.all(12.0),
+        padding: EdgeInsets.only(
+          bottom: isSmallScreen ? 4.0 : 8.0,
+          right: isSmallScreen ? 4.0 : 8.0,
+          left: isSmallScreen ? 4.0 : 0,
+        ),
         child: OverflowBar(
-          alignment: MainAxisAlignment.end,
+          spacing: isSmallScreen ? 4 : 8,
           children: <Widget>[
             TextButton(
               style: TextButton.styleFrom(
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 12, horizontal: 16)),
-              child: Text(localizations.cancelButtonLabel),
+                padding: EdgeInsets.symmetric(
+                  vertical: isSmallScreen ? 8 : 12,
+                  horizontal: isSmallScreen ? 12 : 16,
+                ),
+              ),
+              child: Text(
+                localizations.cancelButtonLabel,
+                style: TextStyle(fontSize: isSmallScreen ? 13 : 14),
+              ),
               onPressed: _cancel,
             ),
             FilledButton(
               style: FilledButton.styleFrom(
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 12, horizontal: 24)),
-              child: Text(localizations.okButtonLabel),
+                padding: EdgeInsets.symmetric(
+                  vertical: isSmallScreen ? 8 : 12,
+                  horizontal: isSmallScreen ? 16 : 24,
+                ),
+              ),
+              child: Text(
+                localizations.okButtonLabel,
+                style: TextStyle(fontSize: isSmallScreen ? 13 : 14),
+              ),
               onPressed: _submit,
             ),
           ],
@@ -654,7 +723,6 @@ class TimeRangePickerState extends State<TimeRangePicker>
   Widget buildTimeRange({
     required MaterialLocalizations localizations,
     required ThemeData themeData,
-    required double radius,
   }) =>
       RawGestureDetector(
         gestures: <Type, GestureRecognizerFactory>{
@@ -665,48 +733,57 @@ class TimeRangePickerState extends State<TimeRangePicker>
             (ClockGestureRecognizer instance) {},
           ),
         },
-        child: CustomPaint(
-          key: _circleKey,
-          painter: ClockPainter(
-              activeTime: _activeTime,
-              startAngle: _startAngle,
-              endAngle: _endAngle,
-              disabledStartAngle: _disabledStartAngle,
-              disabledEndAngle: _disabledEndAngle,
-              radius: radius,
-              strokeWidth: widget.strokeWidth,
-              handlerRadius: widget.handlerRadius,
-              strokeColor: widget.strokeColor ?? themeData.primaryColor,
-              handlerColor: widget.handlerColor ?? themeData.primaryColor,
-              selectedColor:
-                  widget.selectedColor ?? themeData.primaryColorLight,
-              backgroundColor:
-                  widget.backgroundColor ?? Colors.grey.withOpacity(0.3),
-              disabledColor:
-                  widget.disabledColor ?? Colors.red.withOpacity(0.5),
-              paintingStyle: widget.paintingStyle,
-              ticks: widget.ticks,
-              ticksColor: widget.ticksColor,
-              ticksLength: widget.ticksLength,
-              ticksWidth: widget.ticksWidth,
-              ticksOffset: widget.ticksOffset,
-              labels: widget.labels ?? new List.empty(),
-              labelStyle: widget.labelStyle ?? themeData.textTheme.bodyLarge,
-              labelOffset: widget.labelOffset,
-              rotateLabels: widget.rotateLabels,
-              autoAdjustLabels: widget.autoAdjustLabels,
-              offsetRad: _offsetRad),
-          size: Size.fromRadius(radius),
+        child: AspectRatio(
+          aspectRatio: 1,
+          child: Container(
+            color: Colors.white.withOpacity(0),
+            child: Center(
+              child: CustomPaint(
+                key: _circleKey,
+                painter: ClockPainter(
+                    activeTime: _activeTime,
+                    startAngle: _startAngle,
+                    endAngle: _endAngle,
+                    disabledStartAngle: _disabledStartAngle,
+                    disabledEndAngle: _disabledEndAngle,
+                    radius: _radius,
+                    strokeWidth: widget.strokeWidth,
+                    handlerRadius: widget.handlerRadius,
+                    strokeColor: widget.strokeColor ?? themeData.primaryColor,
+                    handlerColor: widget.handlerColor ?? themeData.primaryColor,
+                    selectedColor:
+                        widget.selectedColor ?? themeData.primaryColorLight,
+                    backgroundColor:
+                        widget.backgroundColor ?? Colors.grey.withOpacity(0.3),
+                    disabledColor:
+                        widget.disabledColor ?? Colors.red.withOpacity(0.5),
+                    paintingStyle: widget.paintingStyle,
+                    ticks: widget.ticks,
+                    ticksColor: widget.ticksColor,
+                    ticksLength: widget.ticksLength,
+                    ticksWidth: widget.ticksWidth,
+                    ticksOffset: widget.ticksOffset,
+                    labels: widget.labels ?? new List.empty(),
+                    labelStyle:
+                        widget.labelStyle ?? themeData.textTheme.bodyLarge,
+                    labelOffset: widget.labelOffset,
+                    rotateLabels: widget.rotateLabels,
+                    autoAdjustLabels: widget.autoAdjustLabels,
+                    offsetRad: _offsetRad),
+                size: Size.fromRadius(_radius),
+              ),
+            ),
+          ),
         ),
       );
 
-  Widget buildHeader(bool landscape) {
+  Widget buildHeader(bool landscape, bool isSmallScreen) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
     return Container(
-      margin: const EdgeInsets.all(12.0),
-      padding: const EdgeInsets.all(16.0),
+      margin: EdgeInsets.all(isSmallScreen ? 8.0 : 12.0),
+      padding: EdgeInsets.all(isSmallScreen ? 12.0 : 16.0),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -716,50 +793,68 @@ class TimeRangePickerState extends State<TimeRangePicker>
             colorScheme.secondaryContainer.withOpacity(0.2),
           ],
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(isSmallScreen ? 16 : 20),
         boxShadow: [
           BoxShadow(
             color: colorScheme.primary.withOpacity(0.1),
-            blurRadius: 16,
+            blurRadius: isSmallScreen ? 12 : 16,
             offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Flex(
         direction: landscape ? Axis.vertical : Axis.horizontal,
-        mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          _buildTimeDisplay(
-            label: widget.fromText,
-            time: _startTime,
-            isActive: _activeTime == ActiveTime.Start,
-            onTap: () => _openTimePicker(true),
-            theme: theme,
-            colorScheme: colorScheme,
-            isLandscape: landscape,
+          Flexible(
+            child: _buildTimeDisplay(
+              label: widget.fromText,
+              time: _startTime,
+              isActive: _activeTime == ActiveTime.Start,
+              onTap: () => _openTimePicker(true),
+              theme: theme,
+              colorScheme: colorScheme,
+              isSmallScreen: isSmallScreen,
+            ),
           ),
           Padding(
             padding: EdgeInsets.symmetric(
-              horizontal: landscape ? 0 : 8,
-              vertical: landscape ? 8 : 0,
+              horizontal: landscape ? 0 : (isSmallScreen ? 4 : 8),
+              vertical: landscape ? (isSmallScreen ? 4 : 8) : 0,
             ),
-            child: Icon(
-              landscape
-                  ? Icons.arrow_downward_rounded
-                  : Icons.arrow_forward_rounded,
-              color: colorScheme.primary.withOpacity(0.5),
-              size: 20,
+            child: Container(
+              padding: EdgeInsets.all(isSmallScreen ? 6 : 8),
+              decoration: BoxDecoration(
+                color: colorScheme.surface,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: colorScheme.primary.withOpacity(0.15),
+                    blurRadius: isSmallScreen ? 6 : 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Icon(
+                landscape
+                    ? Icons.arrow_downward_rounded
+                    : Icons.arrow_forward_rounded,
+                color: colorScheme.primary,
+                size: isSmallScreen ? 16 : 20,
+              ),
             ),
           ),
-          _buildTimeDisplay(
-            label: widget.toText,
-            time: _endTime,
-            isActive: _activeTime == ActiveTime.End,
-            onTap: () => _openTimePicker(false),
-            theme: theme,
-            colorScheme: colorScheme,
-            isLandscape: landscape,
+          Flexible(
+            child: _buildTimeDisplay(
+              label: widget.toText,
+              time: _endTime,
+              isActive: _activeTime == ActiveTime.End,
+              onTap: () => _openTimePicker(false),
+              theme: theme,
+              colorScheme: colorScheme,
+              isSmallScreen: isSmallScreen,
+            ),
           ),
         ],
       ),
@@ -773,68 +868,108 @@ class TimeRangePickerState extends State<TimeRangePicker>
     required VoidCallback onTap,
     required ThemeData theme,
     required ColorScheme colorScheme,
-    required bool isLandscape,
+    required bool isSmallScreen,
   }) {
-    // Determine Width based on orientation to ensure equal sizing
-    return Flexible(
-      flex: 1,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          width: isLandscape ? double.infinity : null,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          decoration: BoxDecoration(
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(isSmallScreen ? 12 : 16),
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: isSmallScreen ? 8 : 12,
+          vertical: isSmallScreen ? 8 : 12,
+        ),
+        decoration: BoxDecoration(
+          gradient: isActive
+              ? LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    colorScheme.primary,
+                    colorScheme.primary.withOpacity(0.8),
+                  ],
+                )
+              : null,
+          color: isActive ? null : colorScheme.surface.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(isSmallScreen ? 12 : 16),
+          border: Border.all(
             color: isActive
-                ? colorScheme.primary
-                : colorScheme.surface.withOpacity(0.5),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isActive
-                  ? colorScheme.primary
-                  : colorScheme.outline.withOpacity(0.2),
-            ),
-            boxShadow: isActive
-                ? [
-                    BoxShadow(
-                      color: colorScheme.primary.withOpacity(0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ]
-                : [],
+                ? colorScheme.primary.withOpacity(0.3)
+                : colorScheme.outline.withOpacity(0.2),
+            width: isActive ? 2 : 1.5,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
+          boxShadow: isActive
+              ? [
+                  BoxShadow(
+                    color: colorScheme.primary.withOpacity(0.3),
+                    blurRadius: isSmallScreen ? 8 : 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: isSmallScreen ? 4 : 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: isSmallScreen ? 4 : 6,
+                vertical: isSmallScreen ? 1 : 2,
+              ),
+              decoration: BoxDecoration(
+                color: isActive
+                    ? colorScheme.onPrimary.withOpacity(0.2)
+                    : colorScheme.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(isSmallScreen ? 4 : 6),
+              ),
+              child: Text(
                 label.toUpperCase(),
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: isActive ? colorScheme.onPrimary : colorScheme.primary,
-                  letterSpacing: 1.0,
+                  letterSpacing: isSmallScreen ? 0.8 : 1.0,
                   fontWeight: FontWeight.w600,
-                  fontSize: 10,
+                  fontSize: isSmallScreen ? 9 : 10,
                 ),
               ),
-              const SizedBox(height: 4),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  MaterialLocalizations.of(context).formatTimeOfDay(
-                    time,
-                    alwaysUse24HourFormat: widget.use24HourFormat,
-                  ),
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    color: isActive
-                        ? colorScheme.onPrimary
-                        : colorScheme.onSurface,
-                    fontWeight: FontWeight.bold,
+            ),
+            SizedBox(height: isSmallScreen ? 4 : 8),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.schedule_rounded,
+                  color: isActive
+                      ? colorScheme.onPrimary.withOpacity(0.9)
+                      : colorScheme.onSurface.withOpacity(0.6),
+                  size: isSmallScreen ? 16 : 20,
+                ),
+                SizedBox(width: isSmallScreen ? 4 : 8),
+                Flexible(
+                  child: Text(
+                    MaterialLocalizations.of(context).formatTimeOfDay(
+                      time,
+                      alwaysUse24HourFormat: widget.use24HourFormat,
+                    ),
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      color: isActive
+                          ? colorScheme.onPrimary
+                          : colorScheme.onSurface,
+                      fontWeight: FontWeight.bold,
+                      fontSize: isSmallScreen ? 18 : 24,
+                      letterSpacing: -0.5,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
         ),
       ),
     );
