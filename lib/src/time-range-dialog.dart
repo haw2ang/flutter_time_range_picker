@@ -432,104 +432,67 @@ class TimeRangePickerState extends State<TimeRangePicker>
   }
 
   void _panUpdate(PointerMoveEvent ev) {
-    // Existing pan logic ...
     if (_activeTime == null) return;
+
     RenderBox circle =
         _circleKey.currentContext!.findRenderObject() as RenderBox;
     final center = circle.size.center(Offset.zero);
     final point = circle.globalToLocal(ev.position);
-    final touchPositionFromCenter = point - center;
-    var dir = normalizeAngle(touchPositionFromCenter.direction);
+    var touchDir = normalizeAngle((point - center).direction);
 
-    var minDurationSigned = durationToAngle(widget.minDuration);
-    var minDurationAngle =
-        minDurationSigned < 0 ? 2 * pi + minDurationSigned : minDurationSigned;
+    // Determine min and max angles relative to the other handle
+    double minAngle = durationToAngle(widget.minDuration);
+    double? maxAngle = widget.maxDuration != null
+        ? durationToAngle(widget.maxDuration!)
+        : null;
 
+    double otherAngle =
+        _activeTime == ActiveTime.Start ? _endAngle : _startAngle;
+
+    // Clamp by min/max duration
     if (_activeTime == ActiveTime.Start) {
-      var angleToEndSigned = signedAngle(_endAngle, dir);
-      var angleToEnd =
-          angleToEndSigned < 0 ? 2 * pi + angleToEndSigned : angleToEndSigned;
-
-      if (widget.disabledTimes != null && widget.disabledTimes!.isNotEmpty) {
-        for (var i = 0; i < _disabledStartAngle!.length; i++) {
-          var angleToDisabledStart = signedAngle(_disabledStartAngle![i], dir);
-          var angleToDisabledEnd = signedAngle(_disabledEndAngle![i], dir);
-          var disabledAngleSigned =
-              signedAngle(_disabledEndAngle![i], _disabledStartAngle![i]);
-          var disabledDiff = disabledAngleSigned < 0
-              ? 2 * pi + disabledAngleSigned
-              : disabledAngleSigned;
-
-          if (angleToDisabledStart - minDurationAngle < 0 &&
-              angleToDisabledStart > -disabledDiff / 2) {
-            dir = _disabledStartAngle![i] - minDurationAngle;
-            _updateTimeAndSnapAngle(ActiveTime.End, _disabledStartAngle![i]);
-          } else if (angleToDisabledEnd > 0 &&
-              angleToDisabledEnd < disabledDiff / 2) {
-            dir = _disabledEndAngle![i];
-          }
-        }
-      }
-
-      if (angleToEnd > 0 && angleToEnd < minDurationAngle) {
-        var angle = dir + minDurationAngle;
-        _updateTimeAndSnapAngle(ActiveTime.End, angle);
-      }
-
-      if (widget.maxDuration != null) {
-        var startSigned = signedAngle(_endAngle, dir);
-        var startDiff = startSigned < 0 ? 2 * pi + startSigned : startSigned;
-        var maxSigned = durationToAngle(widget.maxDuration!);
-        var maxDiff = maxSigned < 0 ? 2 * pi + maxSigned : maxSigned;
-        if (startDiff > maxDiff) {
-          var angle = dir + maxSigned;
-          _updateTimeAndSnapAngle(ActiveTime.End, angle);
-        }
-      }
+      double signedToEnd = signedAngle(otherAngle, touchDir);
+      if (signedToEnd < minAngle) touchDir = otherAngle - minAngle;
+      if (maxAngle != null && signedToEnd > maxAngle)
+        touchDir = otherAngle - maxAngle;
     } else {
-      var angleToStartSigned = signedAngle(dir, _startAngle);
-      var angleToStart = angleToStartSigned < 0
-          ? 2 * pi + angleToStartSigned
-          : angleToStartSigned;
+      double signedToStart = signedAngle(touchDir, otherAngle);
+      if (signedToStart < minAngle) touchDir = otherAngle + minAngle;
+      if (maxAngle != null && signedToStart > maxAngle)
+        touchDir = otherAngle + maxAngle;
+    }
 
-      if (widget.disabledTimes != null && widget.disabledTimes!.isNotEmpty) {
-        for (var i = 0; i < _disabledStartAngle!.length; i++) {
-          var angleToDisabledStart = signedAngle(_disabledStartAngle![i], dir);
-          var angleToDisabledEnd = signedAngle(_disabledEndAngle![i], dir);
-          var disabledAngleSigned =
-              signedAngle(_disabledEndAngle![i], _disabledStartAngle![i]);
-          var disabledDiff = disabledAngleSigned < 0
-              ? 2 * pi + disabledAngleSigned
-              : disabledAngleSigned;
+    // Snap outside disabled ranges
+    if (widget.disabledTimes != null && widget.disabledTimes!.isNotEmpty) {
+      touchDir = _snapOutsideDisabled(touchDir, _activeTime!);
+    }
 
-          if (angleToDisabledStart < 0 &&
-              angleToDisabledStart > -disabledDiff / 2) {
-            dir = _disabledStartAngle![i];
-          } else if (angleToDisabledEnd + minDurationAngle > 0 &&
-              angleToDisabledEnd < disabledDiff / 2) {
-            dir = _disabledEndAngle![i] + minDurationAngle;
-            _updateTimeAndSnapAngle(ActiveTime.Start, _disabledEndAngle![i]);
-          }
-        }
-      }
+    _updateTimeAndSnapAngle(_activeTime!, touchDir);
+  }
 
-      if (angleToStart > 0 && angleToStart < minDurationAngle) {
-        var angle = dir - minDurationAngle;
-        _updateTimeAndSnapAngle(ActiveTime.Start, angle);
-      }
+// Helper to snap angle outside disabled ranges
+  double _snapOutsideDisabled(double angle, ActiveTime active) {
+    for (int i = 0; i < _disabledStartAngle!.length; i++) {
+      double start = _disabledStartAngle![i];
+      double end = _disabledEndAngle![i];
 
-      if (widget.maxDuration != null) {
-        var endSigned = signedAngle(dir, _startAngle);
-        var endDiff = endSigned < 0 ? 2 * pi + endSigned : endSigned;
-        var maxSigned = durationToAngle(widget.maxDuration!);
-        var maxDiff = maxSigned < 0 ? 2 * pi + maxSigned : maxSigned;
-        if (endDiff > maxDiff) {
-          var angle = dir - maxSigned;
-          _updateTimeAndSnapAngle(ActiveTime.Start, angle);
-        }
+      double diff = signedAngle(end, start);
+      if (diff < 0) diff += 2 * pi;
+
+      double toStart = signedAngle(start, angle);
+      double toEnd = signedAngle(end, angle);
+
+      if (active == ActiveTime.Start) {
+        if (toStart < 0 && toStart > -diff / 2)
+          angle = start - durationToAngle(widget.minDuration);
+        if (toEnd > 0 && toEnd < diff / 2) angle = end;
+      } else {
+        if (toStart < 0 && toStart > -diff / 2) angle = start;
+        if (toEnd > 0 && toEnd < diff / 2)
+          angle = end + durationToAngle(widget.minDuration);
       }
     }
-    _updateTimeAndSnapAngle(_activeTime!, dir);
+    return normalizeAngle(angle);
   }
 
   _updateTimeAndSnapAngle(ActiveTime type, double angle) {
