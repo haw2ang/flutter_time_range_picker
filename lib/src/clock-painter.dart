@@ -1,5 +1,4 @@
 import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:time_range_picker/src/utils.dart';
 
@@ -11,7 +10,7 @@ class ClockPainter extends CustomPainter {
   List<double>? disabledEndAngle = const [];
   ActiveTime? activeTime;
 
-  double radius;
+  // REMOVED: double radius; (Calculated dynamically now)
 
   double strokeWidth;
   double handlerRadius;
@@ -38,6 +37,7 @@ class ClockPainter extends CustomPainter {
   bool autoAdjustLabels;
 
   double offsetRad;
+
   get startHandlerPosition {
     return _startHandlerPosition;
   }
@@ -52,7 +52,7 @@ class ClockPainter extends CustomPainter {
     this.disabledStartAngle,
     this.disabledEndAngle,
     this.activeTime,
-    required this.radius,
+    // REMOVED: required this.radius,
     required this.strokeWidth,
     required this.handlerRadius,
     required this.strokeColor,
@@ -76,6 +76,10 @@ class ClockPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // NEW: Calculate Center and Radius based on available Size
+    final center = size.center(Offset.zero);
+    final radius = min(size.width, size.height) / 2;
+
     var paint = Paint()
       ..style = paintingStyle
       ..strokeWidth = strokeWidth
@@ -83,7 +87,8 @@ class ClockPainter extends CustomPainter {
       ..strokeCap = StrokeCap.butt
       ..isAntiAlias = true;
 
-    var rect = Rect.fromLTRB(0, 0, radius * 2, radius * 2);
+    // NEW: Define rect based on dynamic center and radius
+    var rect = Rect.fromCircle(center: center, radius: radius);
 
     canvas.drawCircle(rect.center, radius, paint);
 
@@ -103,10 +108,7 @@ class ClockPainter extends CustomPainter {
       }
     }
 
-    drawTicks(
-      paint,
-      canvas,
-    );
+    drawTicks(paint, canvas, center, radius);
 
     paint.color = strokeColor;
     paint.strokeWidth = strokeWidth;
@@ -118,27 +120,27 @@ class ClockPainter extends CustomPainter {
       canvas.drawArc(
           rect, start, sweep, paintingStyle == PaintingStyle.fill, paint);
 
-      drawHandler(paint, canvas, ActiveTime.Start, start);
-      drawHandler(paint, canvas, ActiveTime.End, end);
+      drawHandler(paint, canvas, ActiveTime.Start, start, center, radius);
+      drawHandler(paint, canvas, ActiveTime.End, end, center, radius);
     }
 
-    drawLabels(
-      paint,
-      canvas,
-    );
+    drawLabels(paint, canvas, center, radius);
 
     canvas.save();
     canvas.restore();
   }
 
-  void drawHandler(Paint paint, Canvas canvas, ActiveTime type, double angle) {
+  // MODIFIED: Accepts center and radius
+  void drawHandler(Paint paint, Canvas canvas, ActiveTime type, double angle,
+      Offset center, double radius) {
     paint.style = PaintingStyle.fill;
     paint.color = handlerColor;
     if (activeTime == type) {
       paint.color = selectedColor;
     }
 
-    Offset handlerPosition = calcCoords(radius, radius, angle, radius);
+    // MODIFIED: Uses center.dx/dy
+    Offset handlerPosition = calcCoords(center.dx, center.dy, angle, radius);
     canvas.drawCircle(handlerPosition, handlerRadius, paint);
 
     paint.style = PaintingStyle.stroke;
@@ -151,44 +153,46 @@ class ClockPainter extends CustomPainter {
       _endHandlerPosition = handlerPosition;
   }
 
-  void drawTicks(
-    Paint paint,
-    Canvas canvas,
-  ) {
+  // MODIFIED: Accepts center and radius
+  void drawTicks(Paint paint, Canvas canvas, Offset center, double radius) {
     var r = radius + ticksOffset - strokeWidth / 2;
     paint.color = ticksColor;
     paint.strokeWidth = ticksWidth;
-    List.generate(ticks!, (i) => i + 1).forEach((i) {
+    for (var i in List.generate(ticks!, (i) => i + 1)) {
       double angle = (360 / ticks!) * i * pi / 180 + offsetRad;
-      canvas.drawLine(calcCoords(radius, radius, angle, r),
-          calcCoords(radius, radius, angle, r + ticksLength), paint);
-    });
+
+      // MODIFIED: Uses center.dx/dy
+      canvas.drawLine(calcCoords(center.dx, center.dy, angle, r),
+          calcCoords(center.dx, center.dy, angle, r + ticksLength), paint);
+    }
   }
 
-  void drawLabels(
-    Paint paint,
-    Canvas canvas,
-  ) {
-    labels.forEach((label) {
+  // MODIFIED: Accepts center and radius
+  void drawLabels(Paint paint, Canvas canvas, Offset center, double radius) {
+    for (var label in labels) {
+      // MODIFIED: Uses center.dx/dy and passed radius
       drawText(
           canvas,
           paint,
           label.text,
-          calcCoords(
-              radius, radius, label.angle + offsetRad, radius + labelOffset),
-          label.angle + offsetRad);
-    });
+          calcCoords(center.dx, center.dy, label.angle + offsetRad,
+              radius + labelOffset),
+          label.angle + offsetRad,
+          radius // Pass radius down for rotate calculation
+          );
+    }
   }
 
-  void drawText(
-      Canvas canvas, Paint paint, String text, Offset position, double angle) {
+  // MODIFIED: Accepts radius to calculate arc distance
+  void drawText(Canvas canvas, Paint paint, String text, Offset position,
+      double angle, double radius) {
     angle = normalizeAngle(angle);
 
-    TextSpan span = new TextSpan(
+    TextSpan span = TextSpan(
       text: text,
       style: labelStyle,
     );
-    _textPainter = new TextPainter(
+    _textPainter = TextPainter(
       text: span,
       textAlign: TextAlign.center,
       textDirection: TextDirection.ltr,
@@ -208,7 +212,7 @@ class ClockPainter extends CustomPainter {
       // get the width of the word
       var wordWidth = _textPainter.width;
 
-      //the total distance from center of circle
+      //the total distance from center of circle (uses calculated radius)
       var dist = (radius + labelOffset);
 
       // accumulat the offset of the letter within the word
@@ -217,7 +221,7 @@ class ClockPainter extends CustomPainter {
       // if flip, reverse letter order
       var chars = !flipLabel ? text.runes : text.runes.toList().reversed;
 
-      chars.forEach((char) {
+      for (var char in chars) {
         // put char to textpainter
         prepareTextPainter(String.fromCharCode(char));
 
@@ -229,8 +233,32 @@ class ClockPainter extends CustomPainter {
         // flip 180°
         if (flipLabel) letterAngle = letterAngle + pi;
 
-        // the position of the letter on the circle
-        final Offset letterPos = calcCoords(radius, radius, curveAngle, dist);
+        // the position of the letter on the circle.
+        // NOTE: We need the actual Center of the canvas here, but drawText currently assumes
+        // it's being called within a specific transform context or calculates based on radius.
+        // To keep it simple based on previous implementation:
+        // calcCoords needs center (cx, cy).
+        // Since we are inside drawText, we need access to 'center'.
+        // However, looking at the logic, we can derive cx/cy from the 'position' passed in
+        // IF 'position' wasn't already calculated. But it is.
+        // Let's recalculate center for the letter logic:
+
+        // Logic fix: We need the center of the clock to calculate letter positions.
+        // The passed 'position' is the center of the whole word.
+        // We can back-calculate the center or pass it in.
+        // For cleaner code, let's assume the user of this method passes the clock center,
+        // but since I didn't add that arg to drawText signature to avoid breaking too much logic:
+
+        // We can approximate cx/cy by using the passed radius and angle relative to position,
+        // but it is safer to pass center explicitly.
+
+        // To solve this without changing signature too much, let's derive cx/cy.
+        // position.dx = cx + (radius+offset) * cos(angle)
+        // cx = position.dx - (radius+offset) * cos(angle)
+        double cx = position.dx - dist * cos(angle);
+        double cy = position.dy - dist * sin(angle);
+
+        final Offset letterPos = calcCoords(cx, cy, curveAngle, dist);
 
         // adjust alignment of the letter (vertically centered)
         drawCenter = Offset(
@@ -251,7 +279,7 @@ class ClockPainter extends CustomPainter {
 
         //increase letter offset
         lengthOffset += _textPainter.width;
-      });
+      }
     } else {
       _textPainter.paint(canvas, position + drawCenter);
     }
