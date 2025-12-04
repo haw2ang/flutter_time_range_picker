@@ -51,49 +51,62 @@ showTimeRangePicker({
 }) async {
   assert(debugCheckHasMaterialLocalizations(context));
 
-  // Modern Dialog Shape
+  // RESPONSIVE DIALOG WRAPPER
+  final size = MediaQuery.of(context).size;
+  final isSmallScreen = size.width < 400 || size.height < 500;
+
   final Widget dialog = Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       elevation: 8,
       backgroundColor: Theme.of(context).colorScheme.surface,
-      insetPadding: EdgeInsets.all(16),
-      child: TimeRangePicker(
-        start: start,
-        end: end,
-        disabledTimes: disabledTimes,
-        paintingStyle: paintingStyle,
-        onStartChange: onStartChange,
-        onEndChange: onEndChange,
-        fromText: fromText,
-        toText: toText,
-        interval: interval,
-        padding: padding,
-        strokeWidth: strokeWidth,
-        handlerRadius: handlerRadius,
-        strokeColor: strokeColor,
-        handlerColor: handlerColor,
-        selectedColor: selectedColor,
-        backgroundColor: backgroundColor,
-        disabledColor: disabledColor,
-        backgroundWidget: backgroundWidget,
-        ticks: ticks,
-        ticksLength: ticksLength,
-        ticksWidth: ticksWidth,
-        ticksOffset: ticksOffset,
-        ticksColor: ticksColor,
-        snap: snap,
-        labels: labels,
-        labelOffset: labelOffset,
-        rotateLabels: rotateLabels,
-        autoAdjustLabels: autoAdjustLabels,
-        labelStyle: labelStyle,
-        timeTextStyle: timeTextStyle,
-        activeTimeTextStyle: activeTimeTextStyle,
-        hideTimes: hideTimes,
-        use24HourFormat: use24HourFormat,
-        clockRotation: clockRotation,
-        maxDuration: maxDuration,
-        minDuration: minDuration,
+      // Adaptive padding based on screen size
+      insetPadding: isSmallScreen
+          ? const EdgeInsets.all(8)
+          : const EdgeInsets.symmetric(horizontal: 40.0, vertical: 24.0),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 600, // Prevent it from becoming too wide on desktop
+          maxHeight: size.height * 0.9, // Ensure it fits vertically
+        ),
+        child: TimeRangePicker(
+          start: start,
+          end: end,
+          disabledTimes: disabledTimes,
+          paintingStyle: paintingStyle,
+          onStartChange: onStartChange,
+          onEndChange: onEndChange,
+          fromText: fromText,
+          toText: toText,
+          interval: interval,
+          padding: padding,
+          strokeWidth: strokeWidth,
+          handlerRadius: handlerRadius,
+          strokeColor: strokeColor,
+          handlerColor: handlerColor,
+          selectedColor: selectedColor,
+          backgroundColor: backgroundColor,
+          disabledColor: disabledColor,
+          backgroundWidget: backgroundWidget,
+          ticks: ticks,
+          ticksLength: ticksLength,
+          ticksWidth: ticksWidth,
+          ticksOffset: ticksOffset,
+          ticksColor: ticksColor,
+          snap: snap,
+          labels: labels,
+          labelOffset: labelOffset,
+          rotateLabels: rotateLabels,
+          autoAdjustLabels: autoAdjustLabels,
+          labelStyle: labelStyle,
+          timeTextStyle: timeTextStyle,
+          activeTimeTextStyle: activeTimeTextStyle,
+          hideTimes: hideTimes,
+          use24HourFormat: use24HourFormat,
+          clockRotation: clockRotation,
+          maxDuration: maxDuration,
+          minDuration: minDuration,
+          hideButtons: hideButtons,
+        ),
       ));
 
   return await showDialog<TimeRange>(
@@ -199,7 +212,7 @@ class TimeRangePicker extends StatefulWidget {
 }
 
 class TimeRangePickerState extends State<TimeRangePicker>
-    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+    with SingleTickerProviderStateMixin {
   ActiveTime? _activeTime;
   double _startAngle = 0;
   double _endAngle = 0;
@@ -208,7 +221,6 @@ class TimeRangePickerState extends State<TimeRangePicker>
   List<double>? _disabledEndAngle = [];
 
   final GlobalKey _circleKey = GlobalKey();
-  final GlobalKey _wrapperKey = GlobalKey();
 
   late TimeOfDay _startTime;
   late TimeOfDay _endTime;
@@ -218,33 +230,8 @@ class TimeRangePickerState extends State<TimeRangePicker>
   @override
   void initState() {
     _offsetRad = (widget.clockRotation * pi / 180);
-    WidgetsBinding.instance.addObserver(this);
     setAngles();
-    WidgetsBinding.instance.addPostFrameCallback((_) => setRadius());
     super.initState();
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeMetrics() {
-    super.didChangeMetrics();
-    WidgetsBinding.instance.addPostFrameCallback((_) => setRadius());
-  }
-
-  setRadius() {
-    RenderBox? wrapper =
-        _wrapperKey.currentContext?.findRenderObject() as RenderBox?;
-    if (wrapper != null) {
-      setState(() {
-        _radius =
-            min(wrapper.size.width, wrapper.size.height) / 2 - (widget.padding);
-      });
-    }
   }
 
   void setAngles() {
@@ -261,7 +248,6 @@ class TimeRangePickerState extends State<TimeRangePicker>
       _endTime = _roundMinutes(endTime.hour * 60 + endTime.minute * 1.0);
 
       if (widget.maxDuration != null) {
-        // ... (existing maxDuration logic)
         var startDate =
             DateTime(2020, 1, 1, _startTime.hour, _startTime.minute);
         var endDate = DateTime(2020, 1, 1, _endTime.hour, _endTime.minute);
@@ -275,6 +261,8 @@ class TimeRangePickerState extends State<TimeRangePicker>
       _endAngle = timeToAngle(_endTime, _offsetRad);
 
       if (widget.disabledTimes != null && widget.disabledTimes!.isNotEmpty) {
+        _disabledStartAngle = [];
+        _disabledEndAngle = [];
         for (var disabledTime in widget.disabledTimes!) {
           _disabledStartAngle
               ?.add(timeToAngle(disabledTime.startTime, _offsetRad));
@@ -298,15 +286,13 @@ class TimeRangePickerState extends State<TimeRangePicker>
     return TimeOfDay(hour: hours, minute: minutes);
   }
 
-  // --- Logic for Manual Keyboard Input ---
   Future<void> _openTimePicker(bool isStartTime) async {
     final initialTime = isStartTime ? _startTime : _endTime;
 
-    // Use built-in flutter time picker with input mode
     final TimeOfDay? pickedTime = await showTimePicker(
       context: context,
       initialTime: initialTime,
-      initialEntryMode: TimePickerEntryMode.input, // Keyboard input
+      initialEntryMode: TimePickerEntryMode.input,
       builder: (context, child) {
         return MediaQuery(
           data: MediaQuery.of(context)
@@ -317,8 +303,6 @@ class TimeRangePickerState extends State<TimeRangePicker>
     );
 
     if (pickedTime != null) {
-      // Logic to enforce minDuration and prevent overlap
-      // This mimics the logic inside _panUpdate but for direct values
       int pickedMinutes = pickedTime.hour * 60 + pickedTime.minute;
       int minDurationMinutes = widget.minDuration.inMinutes;
 
@@ -327,27 +311,23 @@ class TimeRangePickerState extends State<TimeRangePicker>
 
       if (isStartTime) {
         newStart = _roundMinutes(pickedMinutes.toDouble());
-        // Check if new start pushes end
         int startMins = newStart.hour * 60 + newStart.minute;
         int endMins = newEnd.hour * 60 + newEnd.minute;
 
-        if (endMins < startMins) endMins += 24 * 60; // handle overnight
+        if (endMins < startMins) endMins += 24 * 60;
 
         if (endMins - startMins < minDurationMinutes) {
-          // Push end time forward
           int newEndTotal = startMins + minDurationMinutes;
           newEnd = _minutesToTime(newEndTotal);
         }
       } else {
         newEnd = _roundMinutes(pickedMinutes.toDouble());
-        // Check if new end pushes start backward
         int startMins = newStart.hour * 60 + newStart.minute;
         int endMins = newEnd.hour * 60 + newEnd.minute;
 
-        if (endMins < startMins) endMins += 24 * 60; // handle overnight
+        if (endMins < startMins) endMins += 24 * 60;
 
         if (endMins - startMins < minDurationMinutes) {
-          // Push start time backward
           int newStartTotal = endMins - minDurationMinutes;
           newStart = _minutesToTime(newStartTotal);
         }
@@ -369,17 +349,14 @@ class TimeRangePickerState extends State<TimeRangePicker>
   }
 
   TimeOfDay _minutesToTime(int totalMinutes) {
-    // Normalize to 24h
     while (totalMinutes >= 24 * 60) totalMinutes -= 24 * 60;
     while (totalMinutes < 0) totalMinutes += 24 * 60;
 
     return TimeOfDay(
         hour: (totalMinutes / 60).floor(), minute: totalMinutes % 60);
   }
-  // ----------------------------------------
 
   bool _panStart(PointerDownEvent ev) {
-    // ... (No changes to _panStart logic needed, kept for brevity)
     bool isHandler = false;
     var globalPoint = ev.position;
     var snap = widget.handlerRadius * 2.5;
@@ -433,38 +410,97 @@ class TimeRangePickerState extends State<TimeRangePicker>
 
   void _panUpdate(PointerMoveEvent ev) {
     if (_activeTime == null) return;
-
     RenderBox circle =
         _circleKey.currentContext!.findRenderObject() as RenderBox;
     final center = circle.size.center(Offset.zero);
     final point = circle.globalToLocal(ev.position);
-    var dir = normalizeAngle((point - center).direction);
+    final touchPositionFromCenter = point - center;
+    var dir = normalizeAngle(touchPositionFromCenter.direction);
 
-    // Blocked times angles
-    List<double> disabledStarts = _disabledStartAngle ?? [];
-    List<double> disabledEnds = _disabledEndAngle ?? [];
+    var minDurationSigned = durationToAngle(widget.minDuration);
+    var minDurationAngle =
+        minDurationSigned < 0 ? 2 * pi + minDurationSigned : minDurationSigned;
 
-    bool isInDisabled = false;
-    for (int i = 0; i < disabledStarts.length; i++) {
-      double start = disabledStarts[i];
-      double end = disabledEnds[i];
-      double diff = signedAngle(end, start);
-      if (diff < 0) diff += 2 * pi;
+    if (_activeTime == ActiveTime.Start) {
+      var angleToEndSigned = signedAngle(_endAngle, dir);
+      var angleToEnd =
+          angleToEndSigned < 0 ? 2 * pi + angleToEndSigned : angleToEndSigned;
 
-      double toStart = signedAngle(start, dir);
-      double toEnd = signedAngle(end, dir);
+      if (widget.disabledTimes != null && widget.disabledTimes!.isNotEmpty) {
+        for (var i = 0; i < _disabledStartAngle!.length; i++) {
+          var angleToDisabledStart = signedAngle(_disabledStartAngle![i], dir);
+          var disabledAngleSigned =
+              signedAngle(_disabledEndAngle![i], _disabledStartAngle![i]);
+          var disabledDiff = disabledAngleSigned < 0
+              ? 2 * pi + disabledAngleSigned
+              : disabledAngleSigned;
 
-      if (toStart < 0 && toStart > -diff) {
-        isInDisabled = true;
-        dir = start; // snap to start of disabled range
-        break;
-      } else if (toEnd > 0 && toEnd < diff) {
-        isInDisabled = true;
-        dir = end; // snap to end of disabled range
-        break;
+          if (angleToDisabledStart - minDurationAngle < 0 &&
+              angleToDisabledStart > -disabledDiff / 2) {
+            dir = _disabledStartAngle![i] - minDurationAngle;
+            _updateTimeAndSnapAngle(ActiveTime.End, _disabledStartAngle![i]);
+          }
+        }
+      }
+
+      if (angleToEnd > 0 && angleToEnd < minDurationAngle) {
+        var angle = dir + minDurationAngle;
+        _updateTimeAndSnapAngle(ActiveTime.End, angle);
+      }
+
+      if (widget.maxDuration != null) {
+        var startSigned = signedAngle(_endAngle, dir);
+        var startDiff = startSigned < 0 ? 2 * pi + startSigned : startSigned;
+        var maxSigned = durationToAngle(widget.maxDuration!);
+        var maxDiff = maxSigned < 0 ? 2 * pi + maxSigned : maxSigned;
+        if (startDiff > maxDiff) {
+          var angle = dir + maxSigned;
+          _updateTimeAndSnapAngle(ActiveTime.End, angle);
+        }
+      }
+    } else {
+      var angleToStartSigned = signedAngle(dir, _startAngle);
+      var angleToStart = angleToStartSigned < 0
+          ? 2 * pi + angleToStartSigned
+          : angleToStartSigned;
+
+      if (widget.disabledTimes != null && widget.disabledTimes!.isNotEmpty) {
+        for (var i = 0; i < _disabledStartAngle!.length; i++) {
+          var angleToDisabledStart = signedAngle(_disabledStartAngle![i], dir);
+          var angleToDisabledEnd = signedAngle(_disabledEndAngle![i], dir);
+          var disabledAngleSigned =
+              signedAngle(_disabledEndAngle![i], _disabledStartAngle![i]);
+          var disabledDiff = disabledAngleSigned < 0
+              ? 2 * pi + disabledAngleSigned
+              : disabledAngleSigned;
+
+          if (angleToDisabledStart < 0 &&
+              angleToDisabledStart > -disabledDiff / 2) {
+            dir = _disabledStartAngle![i];
+          } else if (angleToDisabledEnd + minDurationAngle > 0 &&
+              angleToDisabledEnd < disabledDiff / 2) {
+            dir = _disabledEndAngle![i] + minDurationAngle;
+            _updateTimeAndSnapAngle(ActiveTime.Start, _disabledEndAngle![i]);
+          }
+        }
+      }
+
+      if (angleToStart > 0 && angleToStart < minDurationAngle) {
+        var angle = dir - minDurationAngle;
+        _updateTimeAndSnapAngle(ActiveTime.Start, angle);
+      }
+
+      if (widget.maxDuration != null) {
+        var endSigned = signedAngle(dir, _startAngle);
+        var endDiff = endSigned < 0 ? 2 * pi + endSigned : endSigned;
+        var maxSigned = durationToAngle(widget.maxDuration!);
+        var maxDiff = maxSigned < 0 ? 2 * pi + maxSigned : maxSigned;
+        if (endDiff > maxDiff) {
+          var angle = dir - maxSigned;
+          _updateTimeAndSnapAngle(ActiveTime.Start, angle);
+        }
       }
     }
-
     _updateTimeAndSnapAngle(_activeTime!, dir);
   }
 
@@ -493,16 +529,6 @@ class TimeRangePickerState extends State<TimeRangePicker>
     }
   }
 
-  bool isBetweenAngle(double min, double max, double targetAngle) {
-    var normalisedMin = min >= 0 ? min : 2 * pi + min;
-    var normalisedMax = max >= 0 ? max : 2 * pi + max;
-    var normalisedTarget =
-        targetAngle >= 0 ? targetAngle : 2 * pi + targetAngle;
-
-    return normalisedMin <= normalisedTarget &&
-        normalisedTarget <= normalisedMax;
-  }
-
   void _panEnd(PointerUpEvent ev) {
     setState(() {
       _activeTime = null;
@@ -524,72 +550,100 @@ class TimeRangePickerState extends State<TimeRangePicker>
         MaterialLocalizations.of(context);
     final ThemeData themeData = Theme.of(context);
 
-    return OrientationBuilder(
-      builder: (_, orientation) => orientation == Orientation.portrait
-          ? Column(
-              key: _wrapperKey,
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: <Widget>[
-                if (!widget.hideTimes) buildHeader(false),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 24.0),
-                  child: Stack(alignment: Alignment.center, children: [
-                    if (widget.backgroundWidget != null)
-                      widget.backgroundWidget!,
-                    buildTimeRange(
-                        localizations: localizations, themeData: themeData)
-                  ]),
-                ),
-                if (!widget.hideButtons)
-                  buildButtonBar(localizations: localizations)
-              ],
-            )
-          : Row(
-              children: [
-                if (!widget.hideTimes) buildHeader(true),
-                Expanded(
-                  child: Column(
-                    children: [
-                      Expanded(
-                        child: Container(
-                          key: _wrapperKey,
-                          width: double.infinity,
-                          child: Stack(alignment: Alignment.center, children: [
-                            if (widget.backgroundWidget != null)
-                              widget.backgroundWidget!,
-                            buildTimeRange(
-                                localizations: localizations,
-                                themeData: themeData)
-                          ]),
-                        ),
-                      ),
-                      if (!widget.hideButtons)
-                        buildButtonBar(localizations: localizations)
-                    ],
-                  ),
-                ),
-              ],
+    // Dynamic layout determination
+    return LayoutBuilder(builder: (context, constraints) {
+      final isLandscape = constraints.maxWidth > constraints.maxHeight;
+
+      if (!isLandscape) {
+        // PORTRAIT LAYOUT
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: <Widget>[
+            if (!widget.hideTimes) buildHeader(false),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12.0),
+                child: _buildResponsiveClock(localizations, themeData),
+              ),
             ),
-    );
+            if (!widget.hideButtons)
+              buildButtonBar(localizations: localizations)
+          ],
+        );
+      } else {
+        // LANDSCAPE LAYOUT
+        return Row(
+          children: [
+            Expanded(
+              flex: 4,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (!widget.hideTimes) buildHeader(true),
+                  const Spacer(),
+                  if (!widget.hideButtons)
+                    buildButtonBar(localizations: localizations),
+                ],
+              ),
+            ),
+            Expanded(
+              flex: 6,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                child: _buildResponsiveClock(localizations, themeData),
+              ),
+            ),
+          ],
+        );
+      }
+    });
+  }
+
+  /// Calculates radius dynamically based on available space
+  Widget _buildResponsiveClock(
+      MaterialLocalizations localizations, ThemeData themeData) {
+    return LayoutBuilder(builder: (context, constraints) {
+      // Calculate radius instantly based on smallest dimension
+      double dimension = min(constraints.maxWidth, constraints.maxHeight);
+      _radius = (dimension / 2) - widget.padding;
+
+      // Safe guard against negative radius
+      if (_radius <= 0) _radius = 10;
+
+      return Stack(
+        alignment: Alignment.center,
+        children: [
+          if (widget.backgroundWidget != null) widget.backgroundWidget!,
+          buildTimeRange(
+            localizations: localizations,
+            themeData: themeData,
+            radius: _radius, // Pass calculated radius
+          ),
+        ],
+      );
+    });
   }
 
   Widget buildButtonBar({required MaterialLocalizations localizations}) =>
       Padding(
-        padding: const EdgeInsets.only(bottom: 8.0, right: 8.0),
+        padding: const EdgeInsets.all(12.0),
         child: OverflowBar(
-          // buttonPadding: EdgeInsets.symmetric(horizontal: 20),
+          alignment: MainAxisAlignment.end,
           children: <Widget>[
             TextButton(
               style: TextButton.styleFrom(
-                  padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16)),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 12, horizontal: 16)),
               child: Text(localizations.cancelButtonLabel),
               onPressed: _cancel,
             ),
             FilledButton(
               style: FilledButton.styleFrom(
-                  padding: EdgeInsets.symmetric(vertical: 12, horizontal: 24)),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 12, horizontal: 24)),
               child: Text(localizations.okButtonLabel),
               onPressed: _submit,
             ),
@@ -597,9 +651,11 @@ class TimeRangePickerState extends State<TimeRangePicker>
         ),
       );
 
-  Widget buildTimeRange(
-          {required MaterialLocalizations localizations,
-          required ThemeData themeData}) =>
+  Widget buildTimeRange({
+    required MaterialLocalizations localizations,
+    required ThemeData themeData,
+    required double radius,
+  }) =>
       RawGestureDetector(
         gestures: <Type, GestureRecognizerFactory>{
           ClockGestureRecognizer:
@@ -609,51 +665,41 @@ class TimeRangePickerState extends State<TimeRangePicker>
             (ClockGestureRecognizer instance) {},
           ),
         },
-        child: AspectRatio(
-          aspectRatio: 1,
-          child: Container(
-            color: Colors.white.withOpacity(0),
-            child: Center(
-              child: CustomPaint(
-                key: _circleKey,
-                painter: ClockPainter(
-                    activeTime: _activeTime,
-                    startAngle: _startAngle,
-                    endAngle: _endAngle,
-                    disabledStartAngle: _disabledStartAngle,
-                    disabledEndAngle: _disabledEndAngle,
-                    radius: _radius,
-                    strokeWidth: widget.strokeWidth,
-                    handlerRadius: widget.handlerRadius,
-                    strokeColor: widget.strokeColor ?? themeData.primaryColor,
-                    handlerColor: widget.handlerColor ?? themeData.primaryColor,
-                    selectedColor:
-                        widget.selectedColor ?? themeData.primaryColorLight,
-                    backgroundColor:
-                        widget.backgroundColor ?? Colors.grey.withOpacity(0.3),
-                    disabledColor:
-                        widget.disabledColor ?? Colors.red.withOpacity(0.5),
-                    paintingStyle: widget.paintingStyle,
-                    ticks: widget.ticks,
-                    ticksColor: widget.ticksColor,
-                    ticksLength: widget.ticksLength,
-                    ticksWidth: widget.ticksWidth,
-                    ticksOffset: widget.ticksOffset,
-                    labels: widget.labels ?? new List.empty(),
-                    labelStyle:
-                        widget.labelStyle ?? themeData.textTheme.bodyLarge,
-                    labelOffset: widget.labelOffset,
-                    rotateLabels: widget.rotateLabels,
-                    autoAdjustLabels: widget.autoAdjustLabels,
-                    offsetRad: _offsetRad),
-                size: Size.fromRadius(_radius),
-              ),
-            ),
-          ),
+        child: CustomPaint(
+          key: _circleKey,
+          painter: ClockPainter(
+              activeTime: _activeTime,
+              startAngle: _startAngle,
+              endAngle: _endAngle,
+              disabledStartAngle: _disabledStartAngle,
+              disabledEndAngle: _disabledEndAngle,
+              radius: radius,
+              strokeWidth: widget.strokeWidth,
+              handlerRadius: widget.handlerRadius,
+              strokeColor: widget.strokeColor ?? themeData.primaryColor,
+              handlerColor: widget.handlerColor ?? themeData.primaryColor,
+              selectedColor:
+                  widget.selectedColor ?? themeData.primaryColorLight,
+              backgroundColor:
+                  widget.backgroundColor ?? Colors.grey.withOpacity(0.3),
+              disabledColor:
+                  widget.disabledColor ?? Colors.red.withOpacity(0.5),
+              paintingStyle: widget.paintingStyle,
+              ticks: widget.ticks,
+              ticksColor: widget.ticksColor,
+              ticksLength: widget.ticksLength,
+              ticksWidth: widget.ticksWidth,
+              ticksOffset: widget.ticksOffset,
+              labels: widget.labels ?? new List.empty(),
+              labelStyle: widget.labelStyle ?? themeData.textTheme.bodyLarge,
+              labelOffset: widget.labelOffset,
+              rotateLabels: widget.rotateLabels,
+              autoAdjustLabels: widget.autoAdjustLabels,
+              offsetRad: _offsetRad),
+          size: Size.fromRadius(radius),
         ),
       );
 
-  // MODERN HEADER WITH KEYBOARD INPUT
   Widget buildHeader(bool landscape) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
@@ -681,54 +727,39 @@ class TimeRangePickerState extends State<TimeRangePicker>
       ),
       child: Flex(
         direction: landscape ? Axis.vertical : Axis.horizontal,
+        mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          Expanded(
-            child: _buildTimeDisplay(
-              label: widget.fromText,
-              time: _startTime,
-              isActive: _activeTime == ActiveTime.Start,
-              onTap: () => _openTimePicker(true),
-              theme: theme,
-              colorScheme: colorScheme,
-            ),
+          _buildTimeDisplay(
+            label: widget.fromText,
+            time: _startTime,
+            isActive: _activeTime == ActiveTime.Start,
+            onTap: () => _openTimePicker(true),
+            theme: theme,
+            colorScheme: colorScheme,
+            isLandscape: landscape,
           ),
           Padding(
             padding: EdgeInsets.symmetric(
               horizontal: landscape ? 0 : 8,
               vertical: landscape ? 8 : 0,
             ),
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: colorScheme.surface,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: colorScheme.primary.withOpacity(0.15),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Icon(
-                landscape
-                    ? Icons.arrow_downward_rounded
-                    : Icons.arrow_forward_rounded,
-                color: colorScheme.primary,
-                size: 20,
-              ),
+            child: Icon(
+              landscape
+                  ? Icons.arrow_downward_rounded
+                  : Icons.arrow_forward_rounded,
+              color: colorScheme.primary.withOpacity(0.5),
+              size: 20,
             ),
           ),
-          Expanded(
-            child: _buildTimeDisplay(
-              label: widget.toText,
-              time: _endTime,
-              isActive: _activeTime == ActiveTime.End,
-              onTap: () => _openTimePicker(false),
-              theme: theme,
-              colorScheme: colorScheme,
-            ),
+          _buildTimeDisplay(
+            label: widget.toText,
+            time: _endTime,
+            isActive: _activeTime == ActiveTime.End,
+            onTap: () => _openTimePicker(false),
+            theme: theme,
+            colorScheme: colorScheme,
+            isLandscape: landscape,
           ),
         ],
       ),
@@ -742,60 +773,42 @@ class TimeRangePickerState extends State<TimeRangePicker>
     required VoidCallback onTap,
     required ThemeData theme,
     required ColorScheme colorScheme,
+    required bool isLandscape,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        decoration: BoxDecoration(
-          gradient: isActive
-              ? LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    colorScheme.primary,
-                    colorScheme.primary.withOpacity(0.8),
-                  ],
-                )
-              : null,
-          color: isActive ? null : colorScheme.surface.withOpacity(0.5),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
+    // Determine Width based on orientation to ensure equal sizing
+    return Flexible(
+      flex: 1,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          width: isLandscape ? double.infinity : null,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(
             color: isActive
-                ? colorScheme.primary.withOpacity(0.3)
-                : colorScheme.outline.withOpacity(0.2),
-            width: isActive ? 2 : 1.5,
+                ? colorScheme.primary
+                : colorScheme.surface.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isActive
+                  ? colorScheme.primary
+                  : colorScheme.outline.withOpacity(0.2),
+            ),
+            boxShadow: isActive
+                ? [
+                    BoxShadow(
+                      color: colorScheme.primary.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : [],
           ),
-          boxShadow: isActive
-              ? [
-                  BoxShadow(
-                    color: colorScheme.primary.withOpacity(0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ]
-              : [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: isActive
-                    ? colorScheme.onPrimary.withOpacity(0.2)
-                    : colorScheme.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
                 label.toUpperCase(),
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: isActive ? colorScheme.onPrimary : colorScheme.primary,
@@ -804,20 +817,10 @@ class TimeRangePickerState extends State<TimeRangePicker>
                   fontSize: 10,
                 ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.schedule_rounded,
-                  color: isActive
-                      ? colorScheme.onPrimary.withOpacity(0.9)
-                      : colorScheme.onSurface.withOpacity(0.6),
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Text(
+              const SizedBox(height: 4),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
                   MaterialLocalizations.of(context).formatTimeOfDay(
                     time,
                     alwaysUse24HourFormat: widget.use24HourFormat,
@@ -827,13 +830,11 @@ class TimeRangePickerState extends State<TimeRangePicker>
                         ? colorScheme.onPrimary
                         : colorScheme.onSurface,
                     fontWeight: FontWeight.bold,
-                    fontSize: 24,
-                    letterSpacing: -0.5,
                   ),
                 ),
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );
