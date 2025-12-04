@@ -438,61 +438,34 @@ class TimeRangePickerState extends State<TimeRangePicker>
         _circleKey.currentContext!.findRenderObject() as RenderBox;
     final center = circle.size.center(Offset.zero);
     final point = circle.globalToLocal(ev.position);
-    var touchDir = normalizeAngle((point - center).direction);
+    var dir = normalizeAngle((point - center).direction);
 
-    // Determine min and max angles relative to the other handle
-    double minAngle = durationToAngle(widget.minDuration);
-    double? maxAngle = widget.maxDuration != null
-        ? durationToAngle(widget.maxDuration!)
-        : null;
+    // Blocked times angles
+    List<double> disabledStarts = _disabledStartAngle ?? [];
+    List<double> disabledEnds = _disabledEndAngle ?? [];
 
-    double otherAngle =
-        _activeTime == ActiveTime.Start ? _endAngle : _startAngle;
-
-    // Clamp by min/max duration
-    if (_activeTime == ActiveTime.Start) {
-      double signedToEnd = signedAngle(otherAngle, touchDir);
-      if (signedToEnd < minAngle) touchDir = otherAngle - minAngle;
-      if (maxAngle != null && signedToEnd > maxAngle)
-        touchDir = otherAngle - maxAngle;
-    } else {
-      double signedToStart = signedAngle(touchDir, otherAngle);
-      if (signedToStart < minAngle) touchDir = otherAngle + minAngle;
-      if (maxAngle != null && signedToStart > maxAngle)
-        touchDir = otherAngle + maxAngle;
-    }
-
-    // Snap outside disabled ranges
-    if (widget.disabledTimes != null && widget.disabledTimes!.isNotEmpty) {
-      touchDir = _snapOutsideDisabled(touchDir, _activeTime!);
-    }
-
-    _updateTimeAndSnapAngle(_activeTime!, touchDir);
-  }
-
-// Helper to snap angle outside disabled ranges
-  double _snapOutsideDisabled(double angle, ActiveTime active) {
-    for (int i = 0; i < _disabledStartAngle!.length; i++) {
-      double start = _disabledStartAngle![i];
-      double end = _disabledEndAngle![i];
-
+    bool isInDisabled = false;
+    for (int i = 0; i < disabledStarts.length; i++) {
+      double start = disabledStarts[i];
+      double end = disabledEnds[i];
       double diff = signedAngle(end, start);
       if (diff < 0) diff += 2 * pi;
 
-      double toStart = signedAngle(start, angle);
-      double toEnd = signedAngle(end, angle);
+      double toStart = signedAngle(start, dir);
+      double toEnd = signedAngle(end, dir);
 
-      if (active == ActiveTime.Start) {
-        if (toStart < 0 && toStart > -diff / 2)
-          angle = start - durationToAngle(widget.minDuration);
-        if (toEnd > 0 && toEnd < diff / 2) angle = end;
-      } else {
-        if (toStart < 0 && toStart > -diff / 2) angle = start;
-        if (toEnd > 0 && toEnd < diff / 2)
-          angle = end + durationToAngle(widget.minDuration);
+      if (toStart < 0 && toStart > -diff) {
+        isInDisabled = true;
+        dir = start; // snap to start of disabled range
+        break;
+      } else if (toEnd > 0 && toEnd < diff) {
+        isInDisabled = true;
+        dir = end; // snap to end of disabled range
+        break;
       }
     }
-    return normalizeAngle(angle);
+
+    _updateTimeAndSnapAngle(_activeTime!, dir);
   }
 
   _updateTimeAndSnapAngle(ActiveTime type, double angle) {
